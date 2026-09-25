@@ -100,7 +100,6 @@ export const LogsTab: React.FC<LogsTabProps> = ({ containerId, containerName }) 
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Determine compact display name for container tag
   const resolvedContainer = containers.find((c) => c.id === containerId);
   const rawName = containerName || resolvedContainer?.name || "container";
   let displayName = rawName.replace(/^\//, "");
@@ -367,7 +366,7 @@ export const LogsTab: React.FC<LogsTabProps> = ({ containerId, containerName }) 
             const firstSpace = log.indexOf(" ");
             const firstToken = firstSpace > 0 ? log.slice(0, firstSpace) : log;
             const hasIsoTimestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(firstToken);
-            
+
             let displayTimestamp = "";
             let messageContent = log;
 

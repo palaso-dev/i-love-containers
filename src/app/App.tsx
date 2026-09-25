@@ -34,7 +34,6 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const handleGlobalShortcuts = (event: KeyboardEvent) => {
-      // Zoom UI shortcuts (Cmd + / Cmd - / Cmd 0) without Shift
       if (event.metaKey || event.ctrlKey) {
         if (!event.shiftKey) {
           if (event.key === "=" || event.key === "+") {

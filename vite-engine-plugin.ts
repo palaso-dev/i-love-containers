@@ -933,7 +933,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
             const cleanPath = url.replace("/api/containers/", "").split("?")[0];
             const parts = cleanPath.split("/");
             const containerId = parts[0];
-            const subRoute = parts[1]; 
+            const subRoute = parts[1];
 
             if (subRoute === "logs") {
               try {
@@ -955,7 +955,6 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                   const lines = logText
                     .split("\n")
                     .map((line) => {
-                      // Strip any remaining multiplexed 8-byte headers if present in text
                       let cleaned = line;
                       if (
                         cleaned.length >= 8 &&
@@ -966,7 +965,6 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                       ) {
                         cleaned = cleaned.slice(8);
                       }
-                      // Clean ANSI escape sequences, residual control characters, and Unicode replacement character
                       return cleaned
                         .replace(/\u001b\[[0-9;?]*[a-zA-Z]/g, "")
                         .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "")

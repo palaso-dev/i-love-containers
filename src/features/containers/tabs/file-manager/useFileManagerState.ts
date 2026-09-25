@@ -177,7 +177,6 @@ export function useFileManagerState(
     sortAsc,
   ]);
 
-  // Handle native Tauri drag and drop
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     let isMounted = true;
@@ -298,7 +297,6 @@ export function useFileManagerState(
     };
   }, [containerId, loadFiles]);
 
-  // Handle browser drag and drop
   useEffect(() => {
     let dragEnterCount = 0;
 
@@ -952,7 +950,6 @@ export function useFileManagerState(
     await loadFiles(currentPath);
   };
 
-  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;

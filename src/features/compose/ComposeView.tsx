@@ -98,12 +98,10 @@ export const ComposeView: React.FC = () => {
   const mergedProjects = useMemo(() => {
     let hidden = getHiddenComposeProjects();
 
-    // Auto-unhide any stack that currently has containers running
     const activeProjectNames = new Set(
       containers
         .map((c) => {
           if (c.composeProject) return c.composeProject.toLowerCase();
-          // Fallback: check if container name is like 'myproject_service_1' or 'myproject-service-1'
           const parts = c.name.split(/[-_]/);
           if (parts.length >= 3) return parts[0].toLowerCase();
           return undefined;
@@ -122,7 +120,6 @@ export const ComposeView: React.FC = () => {
       (p) => !hidden.includes(p.name.toLowerCase()),
     );
 
-    // Group containers by composeProject (or container name prefix if composeProject is missing)
     const containersByProject = new Map<string, typeof containers>();
     for (const c of containers) {
       let projName = c.composeProject;
@@ -139,7 +136,6 @@ export const ComposeView: React.FC = () => {
       containersByProject.set(projName.toLowerCase(), existing);
     }
 
-    // 1. Ensure existing composeProjects have full container lists if empty
     for (const p of list) {
       if (!p.containers || p.containers.length === 0) {
         const found = containersByProject.get(p.name.toLowerCase());
@@ -152,7 +148,6 @@ export const ComposeView: React.FC = () => {
       }
     }
 
-    // 2. Discover stacks present in containers that weren't in composeProjects
     for (const [projKey, projContainers] of containersByProject.entries()) {
       const exists = list.some(
         (p) => p.name.toLowerCase() === projKey,
@@ -168,7 +163,6 @@ export const ComposeView: React.FC = () => {
       }
     }
 
-    // 3. Include saved stacks from storage
     for (const s of savedStacks) {
       if (hidden.includes(s.name.toLowerCase())) continue;
       const exists = list.some(

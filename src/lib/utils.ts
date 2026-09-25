@@ -31,10 +31,8 @@ export function formatRelativeTime(dateString: string): string {
 
 export function formatUptime(status: string = "", startedAt?: string): string {
   if (!status) return "";
-  // Check if status is like "Up 2 hours", "Up About an hour", "Up 45 minutes", etc.
   const lower = status.toLowerCase();
   if (lower.startsWith("up ")) {
-    // If it has health info like "Up 2 hours (healthy)", preserve or format
     return status;
   }
   if (startedAt) {
@@ -68,16 +66,12 @@ export function getParentPath(p: string): string | null {
   return segments.length === 0 ? "/" : "/" + segments.join("/");
 }
 
-// Strips ANSI escape codes and unprintable control characters (including Docker header bytes or raw terminal control codes like \x00-\x08, \x0B-\x1F, \x7F-\x9F) that show up as square-with-x boxes.
 export function sanitizeLogMessage(str: string): string {
   if (!str) return "";
   return str
-    // Strip ANSI escape sequences: \u001b[...m, etc.
     .replace(/\u001b\[[0-9;?]*[a-zA-Z]/g, "")
     .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "")
-    // Strip Docker multiplexed header leftovers (\x01\x00\x00\x00 or \x02\x00\x00\x00) if any
     .replace(/[\x01\x02]\x00\x00\x00[\s\S]{0,4}/g, "")
-    // Strip unprintable control characters except tab (\x09) and newline (\x0A / \x0D)
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F\uFFFD]/g, "");
 }
 
@@ -92,13 +86,11 @@ export function getCleanContainerName(name: string, project?: string): string {
       clean = clean.slice(project.length + 1);
     }
   } else {
-    // If no project specified, check if it matches project-service-replica
     const parts = clean.split(/[-_]/);
     if (parts.length >= 3 && /^\d+$/.test(parts[parts.length - 1])) {
       clean = parts.slice(1, -1).join("-");
     }
   }
-  // Strip trailing replica suffix (-1, _1, etc.)
   clean = clean.replace(/[-_]\d+$/, "");
   return clean || name.replace(/^\//, "");
 }

@@ -214,7 +214,6 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({
         isDark ? "bg-[#0d1117]" : "bg-white"
       }`}
     >
-      {/* Slim fixed top bar */}
       <div className="h-8 px-2.5 bg-surface-secondary/70 border-b border-border flex items-center justify-between shrink-0 select-none">
         <div className="flex items-center space-x-2 text-2xs font-mono text-muted-foreground truncate">
           <span className="w-1.5 h-1.5 rounded-full bg-status-running" />

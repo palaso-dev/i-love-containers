@@ -64,7 +64,7 @@ export function getSavedStackProjects(): SavedStackProject[] {
 export function saveStackProject(stack: Omit<SavedStackProject, "id" | "createdAt" | "updatedAt"> & { id?: string }): SavedStackProject {
   const stacks = getSavedStackProjects();
   const now = Date.now();
-  
+
   if (stack.id) {
     const index = stacks.findIndex((s) => s.id === stack.id);
     if (index >= 0) {

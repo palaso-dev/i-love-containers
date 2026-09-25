@@ -73,7 +73,6 @@ export const FileManagerTab: React.FC<FileManagerTabProps> = ({
     scrollContainerRef,
     gridContainerRef,
     contextMenuRef,
-    isDraggingInternalRef,
     loadFiles,
     navigateTo,
     handleBack,
@@ -134,9 +133,6 @@ export const FileManagerTab: React.FC<FileManagerTabProps> = ({
       onContextMenu={(e) => handleContextMenu(e)}
       onDragOver={(e) => {
         e.preventDefault();
-        if (!isDraggingInternalRef.current) {
-          // Handled in document listeners
-        }
       }}
       onDrop={handleDrop}
     >

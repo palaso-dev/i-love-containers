@@ -198,7 +198,6 @@ export function useContainersSplitState(
   useEffect(() => {
     if (containers.length === 0) return;
 
-    // Check if the selected container still exists in the overall containers list
     const existsInAll = containers.some((c) => c.id === selectedContainerId);
 
     if (!selectedContainerId || !existsInAll) {

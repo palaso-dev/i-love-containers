@@ -26,7 +26,6 @@ const WindowZoomHandler: React.FC<{ children: React.ReactNode }> = ({
   const { zoomInUi, zoomOutUi, resetZoomUi } = useAppStore();
 
   React.useEffect(() => {
-    // Only bind if this is a standalone window that does not handle its own keydown for text vs window
     if (!windowType) return;
     if (windowType === "terminal" || windowType === "logs") return;
 

@@ -93,9 +93,6 @@ export const StandaloneTerminalWindow: React.FC<
     setTerminalFontSize(session.fontSize);
   };
 
-  // Keyboard shortcuts:
-  // - Cmd/Ctrl + / - / 0 : Zoom entire window UI
-  // - Shift + Cmd/Ctrl + / - / 0 : Zoom terminal font / text
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey) {

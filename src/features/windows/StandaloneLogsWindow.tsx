@@ -96,9 +96,6 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
     } catch {}
   };
 
-  // Keyboard shortcuts:
-  // - Cmd/Ctrl + / - / 0 : Zoom entire window UI
-  // - Shift + Cmd/Ctrl + / - / 0 : Zoom log font / text
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey) {
@@ -165,7 +162,6 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
           const logsByContainer = await Promise.all(
             projectContainers.map(async (c, idx) => {
               const rawLogs = await api.fetchContainerLogs(c.id);
-              // Clean service name: prefer c.composeService, or strip project prefix/numbers from container name
               let serviceName = c.composeService;
               if (!serviceName) {
                 let name = c.name.replace(/^\//, "");
@@ -174,7 +170,6 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
                 } else if (composeProject && name.toLowerCase().startsWith(`${composeProject.toLowerCase()}_`)) {
                   name = name.slice(composeProject.length + 1);
                 }
-                // Strip trailing container replica suffix like -1 or _1
                 name = name.replace(/[-_]\d+$/, "");
                 serviceName = name || c.name;
               }

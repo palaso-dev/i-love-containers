@@ -95,7 +95,6 @@ export function parseComposeYamlToConfig(
       const platform = svcVal.get("platform");
       const command = svcVal.get("command");
 
-      // Ports
       const ports: string[] = [];
       const portsNode = svcVal.get("ports");
       if (isSeq(portsNode)) {
@@ -115,7 +114,6 @@ export function parseComposeYamlToConfig(
         }
       }
 
-      // Environment
       const environment: string[] = [];
       const envNode = svcVal.get("environment");
       if (isSeq(envNode)) {
@@ -133,7 +131,6 @@ export function parseComposeYamlToConfig(
         }
       }
 
-      // Depends on
       const dependsOn: string[] = [];
       const depNode = svcVal.get("depends_on");
       if (isSeq(depNode)) {
@@ -148,7 +145,6 @@ export function parseComposeYamlToConfig(
         }
       }
 
-      // Networks
       const networks: string[] = [];
       const netNode = svcVal.get("networks");
       if (isSeq(netNode)) {
@@ -163,7 +159,6 @@ export function parseComposeYamlToConfig(
         }
       }
 
-      // Volumes
       const volumes: string[] = [];
       const volNode = svcVal.get("volumes");
       if (isSeq(volNode)) {
@@ -181,7 +176,6 @@ export function parseComposeYamlToConfig(
         }
       }
 
-      // Custom Directives
       const customDirectives: Array<{ key: string; value: string }> = [];
       const knownKeys = new Set([
         "image",
@@ -273,14 +267,12 @@ export function serializeConfigToComposeYaml(
 
   const desiredServiceNames = new Set(config.services.map((s) => s.name));
 
-  // Remove deleted services
   for (const existingKey of existingServiceKeys) {
     if (!desiredServiceNames.has(existingKey)) {
       servicesNode.delete(existingKey);
     }
   }
 
-  // Update or insert services
   for (const svc of config.services) {
     let svcMap = servicesNode.get(svc.name) as any;
     if (!isMap(svcMap)) {
@@ -303,39 +295,33 @@ export function serializeConfigToComposeYaml(
     if (svc.command) svcMap.set("command", svc.command);
     else svcMap.delete("command");
 
-    // Ports
     if (svc.ports && svc.ports.length > 0) {
       svcMap.set("ports", svc.ports);
     } else {
       svcMap.delete("ports");
     }
 
-    // Environment
     if (svc.environment && svc.environment.length > 0) {
       svcMap.set("environment", svc.environment);
     } else {
       svcMap.delete("environment");
     }
 
-    // Depends on
     if (svc.depends_on && svc.depends_on.length > 0) {
       const existingDepNode = svcMap.get("depends_on");
       if (isMap(existingDepNode)) {
-        // Keep existing map structure with conditions, remove unselected, add new
         const existingDepKeys = new Set<string>();
         for (const depItem of existingDepNode.items) {
           const depK = String((depItem.key as any)?.valueOf() || "");
           if (depK) existingDepKeys.add(depK);
         }
 
-        // Delete dependencies no longer selected
         for (const depK of existingDepKeys) {
           if (!svc.depends_on.includes(depK)) {
             existingDepNode.delete(depK);
           }
         }
 
-        // Add newly selected dependencies with default condition
         for (const dep of svc.depends_on) {
           if (!existingDepKeys.has(dep)) {
             existingDepNode.set(dep, { condition: "service_started" });
@@ -348,21 +334,18 @@ export function serializeConfigToComposeYaml(
       svcMap.delete("depends_on");
     }
 
-    // Networks
     if (svc.networks && svc.networks.length > 0) {
       svcMap.set("networks", svc.networks);
     } else {
       svcMap.delete("networks");
     }
 
-    // Volumes
     if (svc.volumes && svc.volumes.length > 0) {
       svcMap.set("volumes", svc.volumes);
     } else {
       svcMap.delete("volumes");
     }
 
-    // Custom directives
     if (svc.customDirectives && svc.customDirectives.length > 0) {
       for (const d of svc.customDirectives) {
         if (d.key && d.key.trim()) {
@@ -372,7 +355,6 @@ export function serializeConfigToComposeYaml(
     }
   }
 
-  // Top level networks
   if (config.availableNetworks && config.availableNetworks.length > 0) {
     let networksNode = doc.get("networks") as any;
     if (!isMap(networksNode)) {
@@ -388,7 +370,6 @@ export function serializeConfigToComposeYaml(
     }
   }
 
-  // Top level volumes
   if (config.availableVolumes && config.availableVolumes.length > 0) {
     let volumesNode = doc.get("volumes") as any;
     if (!isMap(volumesNode)) {
