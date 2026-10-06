@@ -1,10 +1,21 @@
 import {
   ContainerEngineInfo,
+  EngineType,
   SystemOverview,
   SystemDiskUsage,
   PruneOptions,
   PruneResult,
 } from "@/types";
+
+interface NativeEngineInfo {
+  id: string;
+  name: string;
+  socket_path: string;
+  app_path?: string;
+  status: ContainerEngineInfo["status"];
+  is_default: boolean;
+}
+
 import { DEFAULT_ENGINES, DEFAULT_OVERVIEW } from "../engines";
 import { apiFetch } from "./client";
 
@@ -44,12 +55,13 @@ export async function fetchDetectedEngines(): Promise<{
   ) {
     try {
       const { invoke } = await import("@tauri-apps/api/core");
-      const nativeEngines = await invoke<any[]>("detect_container_engines");
+      const nativeEngines =
+        await invoke<NativeEngineInfo[]>("detect_container_engines");
       if (Array.isArray(nativeEngines) && nativeEngines.length > 0) {
         localEngines = nativeEngines.map((e) => ({
           id: e.id,
           name: e.name,
-          type: e.id as any,
+          type: e.id as EngineType,
           socketPath: e.socket_path,
           appPath: e.app_path,
           status: e.status,

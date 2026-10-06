@@ -1,9 +1,10 @@
 import React from "react";
+import { Translations } from "@/lib/i18n";
 import { AlertTriangle, X, Play } from "lucide-react";
 import { ContainerDetail } from "@/types";
 
 interface PortConflictModalProps {
-  t: any;
+  t: Translations;
   isOpen: boolean;
   targetContainer: ContainerDetail | null;
   conflictDetails: {

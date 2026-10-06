@@ -367,8 +367,8 @@ export const LogsTab: React.FC<LogsTabProps> = ({ containerId, containerName }) 
             const firstToken = firstSpace > 0 ? log.slice(0, firstSpace) : log;
             const hasIsoTimestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(firstToken);
 
-            let displayTimestamp = "";
-            let messageContent = log;
+            let displayTimestamp: string;
+            let messageContent: string;
 
             if (hasIsoTimestamp) {
               displayTimestamp = firstToken.substring(0, 19).replace("T", " ");

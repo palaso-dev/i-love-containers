@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { useAppStore } from "@/stores/useAppStore";
-import { ContainerState } from "@/types";
+import { ActiveTab, ContainerState } from "@/types";
 import { OverviewTab } from "./tabs/OverviewTab";
 import { LogsTab } from "./tabs/LogsTab";
 import { TerminalTab } from "./tabs/TerminalTab";
@@ -323,7 +323,7 @@ export const ContainersSplitView: React.FC = () => {
               unpauseContainer={unpauseContainer}
               restartContainer={restartContainer}
               setContainerToDelete={setContainerToDelete}
-              setActiveTab={setActiveTab}
+              setActiveTab={(tab) => setActiveTab(tab as ActiveTab)}
               setSelectedImageId={setSelectedImageId}
             />
 

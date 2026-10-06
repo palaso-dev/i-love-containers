@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { Terminal as TerminalIcon, Trash2, RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
 import { useAppStore } from "@/stores/useAppStore";
@@ -63,7 +63,7 @@ export const StandaloneTerminalWindow: React.FC<
     return 12.5;
   });
 
-  const handleZoomInText = () => {
+  const handleZoomInText = useCallback(() => {
     const session = getOrCreateTerminalSession(
       containerId,
       containerName,
@@ -71,9 +71,9 @@ export const StandaloneTerminalWindow: React.FC<
     );
     session.zoomIn();
     setTerminalFontSize(session.fontSize);
-  };
+  }, [containerId, containerName, isDark]);
 
-  const handleZoomOutText = () => {
+  const handleZoomOutText = useCallback(() => {
     const session = getOrCreateTerminalSession(
       containerId,
       containerName,
@@ -81,9 +81,9 @@ export const StandaloneTerminalWindow: React.FC<
     );
     session.zoomOut();
     setTerminalFontSize(session.fontSize);
-  };
+  }, [containerId, containerName, isDark]);
 
-  const handleResetZoomText = () => {
+  const handleResetZoomText = useCallback(() => {
     const session = getOrCreateTerminalSession(
       containerId,
       containerName,
@@ -91,7 +91,7 @@ export const StandaloneTerminalWindow: React.FC<
     );
     session.resetZoom();
     setTerminalFontSize(session.fontSize);
-  };
+  }, [containerId, containerName, isDark]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -122,7 +122,17 @@ export const StandaloneTerminalWindow: React.FC<
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [containerId, containerName, isDark, zoomInUi, zoomOutUi, resetZoomUi]);
+  }, [
+    containerId,
+    containerName,
+    isDark,
+    zoomInUi,
+    zoomOutUi,
+    resetZoomUi,
+    handleResetZoomText,
+    handleZoomInText,
+    handleZoomOutText,
+  ]);
 
   useEffect(() => {
     if (!isRunning) return;

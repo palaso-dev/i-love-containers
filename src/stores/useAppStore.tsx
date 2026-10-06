@@ -21,7 +21,27 @@ import {
   SystemOverview,
   ContainerEngineInfo,
   NavigationEntry,
+  ContainerDetailTab,
+  CONTAINER_DETAIL_TABS,
 } from "@/types";
+
+function parseContainerDetailTab(value: string | null): ContainerDetailTab {
+  if (value && (CONTAINER_DETAIL_TABS as string[]).includes(value)) {
+    return value as ContainerDetailTab;
+  }
+  return "overview";
+}
+
+declare global {
+  interface Window {
+    __applyIlcSettings?: (data: {
+      appTheme?: AppTheme;
+      colorMode?: ColorMode;
+      accentColor?: AccentColor;
+      language?: Language;
+    }) => void;
+  }
+}
 import * as api from "@/lib/api";
 import { translations } from "@/lib/i18n";
 
@@ -49,8 +69,7 @@ interface AppState {
   toggleSidebar: () => void;
   activeTab: ActiveTab;
   selectedContainerId: string | null;
-  containerDetailTab:
-    "overview" | "logs" | "terminal" | "stats" | "inspect" | "files";
+  containerDetailTab: ContainerDetailTab;
   selectedImageId: string | null;
   canGoBack: boolean;
   canGoForward: boolean;
@@ -217,7 +236,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     (zoomVal: number) => {
       const clamped =
         Math.round(Math.max(0.7, Math.min(1.8, zoomVal)) * 100) / 100;
-      (document.documentElement.style as any).zoom = `${clamped}`;
+      document.documentElement.style.zoom = `${clamped}`;
       if (!isStandaloneWindow) {
         localStorage.setItem("ilc-ui-zoom", String(clamped));
       }
@@ -345,7 +364,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     };
 
-    (window as any).__applyIlcSettings = applyIncoming;
+    window.__applyIlcSettings = applyIncoming;
 
     let bc: BroadcastChannel | null = null;
     try {
@@ -371,7 +390,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       if (bc) bc.close();
       window.removeEventListener("storage", handleStorage);
-      delete (window as any).__applyIlcSettings;
+      delete window.__applyIlcSettings;
     };
   }, [applyZoomStyle]);
 
@@ -471,24 +490,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     },
   );
-  const [containerDetailTab, setContainerDetailTab] = useState<
-    "overview" | "logs" | "terminal" | "stats" | "inspect" | "files"
-  >(() => {
-    try {
-      const saved = localStorage.getItem("ilc-container-detail-tab") as any;
-      if (
-        saved &&
-        ["overview", "logs", "terminal", "stats", "inspect", "files"].includes(
-          saved,
-        )
-      ) {
-        return saved;
+  const [containerDetailTab, setContainerDetailTab] =
+    useState<ContainerDetailTab>(() => {
+      try {
+        return parseContainerDetailTab(
+          localStorage.getItem("ilc-container-detail-tab"),
+        );
+      } catch {
+        return "overview";
       }
-      return "overview";
-    } catch {
-      return "overview";
-    }
-  });
+    });
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
 
   const [navigationHistory, setNavigationHistory] = useState<NavigationEntry[]>([
@@ -503,21 +514,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       })(),
       containerDetailTab: (() => {
         try {
-          const saved = localStorage.getItem("ilc-container-detail-tab") as any;
-          if (
-            saved &&
-            [
-              "overview",
-              "logs",
-              "terminal",
-              "stats",
-              "inspect",
-              "files",
-            ].includes(saved)
-          ) {
-            return saved;
-          }
-          return "overview";
+          return parseContainerDetailTab(
+            localStorage.getItem("ilc-container-detail-tab"),
+          );
         } catch {
           return "overview";
         }

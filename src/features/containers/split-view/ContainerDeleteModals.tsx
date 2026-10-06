@@ -1,9 +1,10 @@
 import React from "react";
+import { Translations } from "@/lib/i18n";
 import { X, RotateCw } from "lucide-react";
 import { ContainerDetail, ComposeProject } from "@/types";
 
 interface ContainerDeleteModalsProps {
-  t: any;
+  t: Translations;
   containerToDelete: ContainerDetail | null;
   stackToDelete: { name: string; containers: ContainerDetail[] } | null;
   bulkToDelete: string[] | null;

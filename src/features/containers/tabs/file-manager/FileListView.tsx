@@ -1,4 +1,5 @@
 import React from "react";
+import { Translations } from "@/lib/i18n";
 import { ContainerFileItem } from "@/types";
 import { formatBytes } from "@/lib/utils";
 import { getFileIcon } from "./fileTypes";
@@ -9,7 +10,7 @@ interface FileListViewProps {
   dropTarget: ContainerFileItem | null;
   sortField: "name" | "size" | "mtime";
   sortAsc: boolean;
-  fm: Record<string, any>;
+  fm: Translations["containers"]["fileManager"];
   onSort: (field: "name" | "size" | "mtime") => void;
   onDragStart: (e: React.DragEvent, item: ContainerFileItem) => void;
   onDragEnd: (e: React.DragEvent) => void;

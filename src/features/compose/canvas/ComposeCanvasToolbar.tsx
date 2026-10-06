@@ -1,4 +1,5 @@
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { Translations } from "@/lib/i18n";
 import { ComposeNetworkNode } from "@/lib/composeParser";
 
 interface ComposeCanvasToolbarProps {
@@ -7,7 +8,7 @@ interface ComposeCanvasToolbarProps {
   networks: ComposeNetworkNode[];
   volumesCount: number;
   zoom: number;
-  t: any;
+  t: Translations;
   isActive?: boolean;
   onResetView: () => void;
   onFitView: () => void;

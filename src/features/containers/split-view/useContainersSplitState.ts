@@ -10,7 +10,11 @@ export function useContainersSplitState(
   stopContainer: (id: string) => Promise<boolean | void>,
   unpauseContainer: (id: string) => Promise<boolean | void>,
   restartContainer: (id: string) => Promise<boolean | void>,
-  upComposeProject: (name: string, dir?: string, file?: string) => Promise<any>,
+  upComposeProject: (
+    name: string,
+    dir?: string,
+    file?: string,
+  ) => Promise<{ ok: boolean; stdout?: string; stderr?: string }>,
   refreshData: () => Promise<void>,
 ) {
   const [searchQuery, setSearchQuery] = useState("");

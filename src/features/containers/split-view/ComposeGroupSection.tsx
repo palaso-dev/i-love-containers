@@ -1,4 +1,5 @@
 import React from "react";
+import { Translations } from "@/lib/i18n";
 import {
   ChevronRight,
   ChevronDown,
@@ -21,7 +22,7 @@ interface ComposeGroupSectionProps {
   selectedIds: Set<string>;
   collapsedStacks: Set<string>;
   isActionInProgress: boolean;
-  t: any;
+  t: Translations;
   getStatusDot: (state: ContainerState, size?: "sm" | "md") => string;
   toggleStackCollapse: (stackName: string) => void;
   toggleGroupSelect: (groupList: ContainerDetail[]) => void;

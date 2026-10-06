@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ContainerDetail } from "@/types";
 import { Copy, Check, Layers, ExternalLink } from "lucide-react";
 import { useAppStore } from "@/stores/useAppStore";
@@ -16,15 +16,19 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ container }) => {
   const ot = t.containers.overviewTab;
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<ContainerDetail>(container);
+  const containerRef = useRef(container);
+  containerRef.current = container;
+  const containerId = container.id;
 
   useEffect(() => {
     let isMounted = true;
-    setDetail((prev) => (prev.id === container.id ? prev : container));
+    const current = containerRef.current;
+    setDetail((prev) => (prev.id === current.id ? prev : current));
 
-    fetchContainer(container.id).then((full) => {
+    fetchContainer(containerId).then((full) => {
       if (isMounted && full) {
         setDetail((prev) => {
-          if (prev.id !== container.id) return prev;
+          if (prev.id !== containerId) return prev;
           return {
             ...prev,
             ...full,
@@ -42,7 +46,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ container }) => {
     return () => {
       isMounted = false;
     };
-  }, [container.id]);
+  }, [containerId]);
 
   useEffect(() => {
     setDetail((prev) => {

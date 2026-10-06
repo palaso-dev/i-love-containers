@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { NativeWindowOptions } from "@/lib/nativeWindow";
 import {
   ArrowLeft,
   Play,
@@ -158,7 +159,7 @@ export const ContainerDetailView: React.FC = () => {
               openRealNativeWindow({
                 id: `${tabType}-${container.id}-${Date.now()}`,
                 title: `${container.name} — ${tabTitle}`,
-                type: tabType as any,
+                type: tabType as NativeWindowOptions["type"],
                 containerId: container.id,
                 containerName: container.name,
               });

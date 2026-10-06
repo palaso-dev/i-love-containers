@@ -1,4 +1,5 @@
 import { ContainerFileItem, ContainerFileListResponse } from "@/types";
+import { getErrorMessage } from "@/lib/utils";
 import { normalizePath, getParentPath } from "../utils";
 import { apiFetch, getApiUrl } from "./client";
 import { mockFilesystem } from "./mockFilesystem";
@@ -330,7 +331,7 @@ export async function copyHostFileToContainer(
       hostPath,
     });
     return { ok: true };
-  } catch (err: any) {
-    return { ok: false, error: err?.message || String(err) };
+  } catch (err) {
+    return { ok: false, error: getErrorMessage(err) || String(err) };
   }
 }

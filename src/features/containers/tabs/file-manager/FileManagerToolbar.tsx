@@ -1,4 +1,5 @@
 import React from "react";
+import { Translations } from "@/lib/i18n";
 import {
   ChevronLeft,
   ChevronRight,
@@ -25,7 +26,7 @@ interface FileManagerToolbarProps {
   searchQuery: string;
   isLoading: boolean;
   viewMode: "list" | "grid";
-  fm: Record<string, any>;
+  fm: Translations["containers"]["fileManager"];
   fileInputRef: React.RefObject<HTMLInputElement>;
   onBack: () => void;
   onForward: () => void;

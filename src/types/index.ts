@@ -173,6 +173,23 @@ export type ActiveTab =
   | "compose"
   | "settings";
 
+export type ContainerDetailTab =
+  | "overview"
+  | "logs"
+  | "terminal"
+  | "stats"
+  | "inspect"
+  | "files";
+
+export const CONTAINER_DETAIL_TABS: ContainerDetailTab[] = [
+  "overview",
+  "logs",
+  "terminal",
+  "stats",
+  "inspect",
+  "files",
+];
+
 export type Language = "en" | "es";
 
 export type AppTheme =

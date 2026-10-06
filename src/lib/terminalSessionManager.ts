@@ -105,7 +105,7 @@ export function getOrCreateTerminalSession(
 
     const socket = new WebSocket(url);
     socket.binaryType = "arraybuffer";
-    let pingTimer: any = null;
+    let pingTimer: ReturnType<typeof setInterval> | null = null;
 
     socket.onopen = () => {
       isConnected = true;
@@ -116,8 +116,9 @@ export function getOrCreateTerminalSession(
           try {
             socket.send(JSON.stringify({ type: "ping" }));
           } catch {}
-        } else {
+        } else if (pingTimer) {
           clearInterval(pingTimer);
+          pingTimer = null;
         }
       }, 10000);
       try {

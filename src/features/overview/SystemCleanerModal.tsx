@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { Translations } from "@/lib/i18n";
 import {
   X,
   Trash2,
@@ -27,7 +28,7 @@ import { formatBytes, formatRelativeTime } from "@/lib/utils";
 import { IndeterminateCheckbox } from "@/features/containers/split-view/IndeterminateCheckbox";
 
 interface SystemCleanerModalProps {
-  t: any;
+  t: Translations;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => Promise<void>;

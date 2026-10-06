@@ -35,6 +35,67 @@ export interface EngineInfo {
   icon: string;
 }
 
+type JsonRecord = Record<string, unknown>;
+
+interface DockerContainerSummary {
+  Id: string;
+  Names?: string[];
+  Image?: string;
+  ImageID?: string;
+  State?: string;
+  Status?: string;
+  Created?: number;
+  Command?: string;
+  Labels?: Record<string, string>;
+  Mounts?: DockerMount[];
+  Ports?: DockerPortMapping[];
+  NetworkSettings?: { Networks?: Record<string, unknown> };
+}
+
+interface DockerMount {
+  Type?: string;
+  Source?: string;
+  Destination?: string;
+  Mode?: string;
+  RW?: boolean;
+}
+
+interface DockerPortMapping {
+  IP?: string;
+  PrivatePort?: number;
+  PublicPort?: number;
+  Type?: string;
+}
+
+interface DockerImageSummary {
+  Id: string;
+  RepoTags?: string[] | null;
+  RepoDigests?: string[] | null;
+  Created?: number;
+  Size?: number;
+  Labels?: Record<string, string>;
+  Containers?: number;
+}
+
+interface DockerVolumeSummary {
+  Name: string;
+  Driver?: string;
+  Mountpoint?: string;
+  Scope?: string;
+  Labels?: Record<string, string>;
+  UsageData?: { Size?: number; RefCount?: number };
+  CreatedAt?: string;
+}
+
+interface DockerNetworkSummary {
+  Name: string;
+  Id: string;
+  Driver?: string;
+  Scope?: string;
+  Labels?: Record<string, string>;
+  Containers?: Record<string, { Name?: string }>;
+}
+
 const home = os.homedir();
 const isWin = process.platform === "win32";
 const isLinux = process.platform === "linux";
@@ -267,8 +328,8 @@ function requestUnixSocket(
   socketPath: string,
   requestPath: string,
   method = "GET",
-  bodyData?: any
-): Promise<{ status: number; data: any; rawBuffer?: Buffer }> {
+  bodyData?: unknown,
+): Promise<{ status: number; data: unknown; rawBuffer?: Buffer }> {
   return new Promise((resolve, reject) => {
     const payload =
       bodyData !== undefined && bodyData !== null
@@ -525,7 +586,7 @@ async function getLiveContainerStat(
       let rx = 0;
       let tx = 0;
       if (d.networks) {
-        for (const net of Object.values<any>(d.networks)) {
+        for (const net of Object.values(d.networks) as Array<{ rx_bytes?: number; tx_bytes?: number }>) {
           rx += net.rx_bytes || 0;
           tx += net.tx_bytes || 0;
         }
@@ -834,7 +895,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
 
             if (rawRunning.length > 0) {
               const statsList = await Promise.all(
-                rawRunning.map((c: any) => getLiveContainerStat(socketPath, c.Id))
+                rawRunning.map((c: DockerContainerSummary) => getLiveContainerStat(socketPath, c.Id))
               );
               for (const s of statsList) {
                 totalCpuPercent += s.cpuPercent;
@@ -873,11 +934,11 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
             const raw = await requestUnixSocket(socketPath, "/containers/json?all=true");
             const rawContainers = Array.isArray(raw.data) ? raw.data : [];
 
-            const runningContainers = rawContainers.filter((c: any) => c.State === "running");
+            const runningContainers = rawContainers.filter((c: DockerContainerSummary) => c.State === "running");
             const statsMap = new Map<string, CachedContainerStats>();
             if (runningContainers.length > 0) {
               const statsResults = await Promise.all(
-                runningContainers.map(async (c: any) => ({
+                runningContainers.map(async (c: DockerContainerSummary) => ({
                   id: c.Id,
                   stat: await getLiveContainerStat(socketPath, c.Id),
                 }))
@@ -887,7 +948,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
               }
             }
 
-            const formatted = rawContainers.map((c: any) => {
+            const formatted = rawContainers.map((c: DockerContainerSummary) => {
               const name = c.Names && c.Names[0] ? (c.Names[0].startsWith("/") ? c.Names[0].slice(1) : c.Names[0]) : c.Id.slice(0, 12);
               const composeProject = c.Labels ? c.Labels["com.docker.compose.project"] : undefined;
               const composeService = c.Labels ? c.Labels["com.docker.compose.service"] : undefined;
@@ -903,7 +964,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                 created: new Date((c.Created || 0) * 1000).toISOString(),
                 command: c.Command || "",
                 env: [],
-                mounts: (c.Mounts || []).map((m: any) => ({
+                mounts: (c.Mounts || []).map((m: DockerMount) => ({
                   type: m.Type || "bind",
                   source: m.Source || "",
                   destination: m.Destination || "",
@@ -911,7 +972,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                   rw: m.RW ?? true,
                 })),
                 networks: Object.keys(c.NetworkSettings?.Networks || {}),
-                ports: (c.Ports || []).map((p: any) => ({
+                ports: (c.Ports || []).map((p: DockerPortMapping) => ({
                   ip: p.IP,
                   privatePort: p.PrivatePort,
                   publicPort: p.PublicPort,
@@ -1075,7 +1136,17 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
               const currentPath = path.posix.normalize(cleanPwd || "/");
               const parentPath = currentPath === "/" ? null : path.posix.dirname(currentPath);
               const lines = (rawListing || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-              const entries: any[] = [];
+              const entries: Array<{
+                name: string;
+                path: string;
+                size: number;
+                mtime: string;
+                isDirectory: boolean;
+                isSymlink: boolean;
+                permissions: string;
+                owner: string;
+                group: string;
+              }> = [];
               for (const line of lines) {
                 if (line.startsWith("total ")) continue;
                 const match = line.match(/^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+)$/);
@@ -1151,7 +1222,12 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
               return;
             }
 
-            const inspectPorts: any[] = [];
+            const inspectPorts: Array<{
+              ip?: string;
+              privatePort: number;
+              publicPort?: number;
+              type: string;
+            }> = [];
             const portMap = c.NetworkSettings?.Ports || c.HostConfig?.PortBindings || {};
             const exposedPortsMap = c.Config?.ExposedPorts || {};
             const allPortKeys = Array.from(new Set([...Object.keys(portMap), ...Object.keys(exposedPortsMap)]));
@@ -1161,7 +1237,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
               const privatePort = parseInt(privatePortStr, 10) || 0;
               const bindings = portMap[key];
               if (Array.isArray(bindings) && bindings.length > 0) {
-                for (const b of bindings as any[]) {
+                for (const b of bindings as Array<{ HostIp?: string; HostPort?: string }>) {
                   inspectPorts.push({
                     ip: b.HostIp || "",
                     privatePort,
@@ -1178,7 +1254,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
             }
 
             const mounts = Array.isArray(c.Mounts) && c.Mounts.length > 0
-              ? c.Mounts.map((m: any) => ({
+              ? c.Mounts.map((m: DockerMount) => ({
                   type: m.Type || "bind",
                   source: m.Source || "",
                   destination: m.Destination || "",
@@ -1383,7 +1459,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                     })
                   );
                   return;
-                } catch (err: any) {
+                } catch (err) {
                   res.statusCode = 500;
                   res.setHeader("Content-Type", "application/json");
                   res.end(JSON.stringify({ error: err.message }));
@@ -1481,7 +1557,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                     }
                   );
                   return;
-                } catch (err: any) {
+                } catch (err) {
                   res.statusCode = 500;
                   res.end(JSON.stringify({ error: err.message }));
                   return;
@@ -1495,7 +1571,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
             const raw = await requestUnixSocket(socketPath, "/images/json");
             const rawImages = Array.isArray(raw.data) ? raw.data : [];
 
-            const formatted = rawImages.map((img: any) => {
+            const formatted = rawImages.map((img: DockerImageSummary) => {
               let repo = "<none>";
               let tag = "<none>";
               if (img.RepoTags && img.RepoTags.length > 0 && img.RepoTags[0] !== "<none>:<none>") {
@@ -1538,9 +1614,14 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
               const totalSize = (typeof inspectData.Size === "number" && inspectData.Size > 0) ? inspectData.Size : historySum;
 
               let runningWasted = 0;
-              const recommendations: any[] = [];
+              const recommendations: Array<{
+                title: string;
+                description: string;
+                severity: string;
+                potentialSavings: number;
+              }> = [];
 
-              const layers = reversed.map((item: any, idx: number) => {
+              const layers = reversed.map((item: JsonRecord, idx: number) => {
                 const rawCmd = item.CreatedBy || "";
                 let cmd = rawCmd.replace(/^\/bin\/sh\s+-c\s+(#\(nop\)\s+)?/, "").trim();
                 if (!cmd) cmd = item.Comment || "Base layer";
@@ -1599,7 +1680,12 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
 
                 runningWasted += wastedInLayer;
 
-                const files: any[] = [];
+                const files: Array<{
+                  path: string;
+                  size: number;
+                  type: string;
+                  changeType: string;
+                }> = [];
                 if (instructionType === "COPY" || instructionType === "ADD") {
                   const parts = cmd.replace(/^(COPY|ADD)\s+(--[^\s]+\s+)?/, "").split(/\s+/);
                   const dest = parts[parts.length - 1] || "/app";
@@ -1658,7 +1744,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                 });
               }
 
-              const heavyLayers = layers.filter((l: any) => l.size > 80 * 1024 * 1024);
+              const heavyLayers = layers.filter((l: JsonRecord) => Number(l.size) > 80 * 1024 * 1024);
               if (heavyLayers.length > 0) {
                 recommendations.push({
                   title: "Multi-stage build opportunity",
@@ -1707,7 +1793,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
               res.setHeader("Content-Type", "application/json");
               res.end(JSON.stringify(analysis));
               return;
-            } catch (err: any) {
+            } catch (err) {
               res.statusCode = 500;
               res.setHeader("Content-Type", "application/json");
               res.end(JSON.stringify({ error: err?.message || "Failed to analyze image" }));
@@ -1757,7 +1843,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
             const raw = await requestUnixSocket(socketPath, "/volumes");
             const rawVolumes = raw.data?.Volumes || [];
 
-            const formatted = rawVolumes.map((v: any) => {
+            const formatted = rawVolumes.map((v: DockerVolumeSummary) => {
               const dfInfo = sizeMap.get(v.Name);
               const size = dfInfo ? dfInfo.size : (v.UsageData?.Size ?? 0);
               const inUse = dfInfo ? dfInfo.refCount > 0 : false;
@@ -1772,7 +1858,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
               };
             });
 
-            formatted.sort((a: any, b: any) =>
+            formatted.sort((a, b) =>
               a.name.localeCompare(b.name, undefined, { numeric: true })
             );
 
@@ -1807,10 +1893,10 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
             const raw = await requestUnixSocket(socketPath, "/networks");
             const rawNetworks = Array.isArray(raw.data) ? raw.data : [];
 
-            const formatted = rawNetworks.map((n: any) => {
-              const connected: any[] = [];
+            const formatted = rawNetworks.map((n: DockerNetworkSummary) => {
+              const connected: Array<{ id: string; name: string }> = [];
               if (n.Containers) {
-                Object.entries(n.Containers).forEach(([id, c]: [string, any]) => {
+                Object.entries(n.Containers || {}).forEach(([id, c]) => {
                   connected.push({
                     id,
                     name: c.Name,
@@ -1841,7 +1927,24 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                 name: string;
                 workingDir?: string;
                 configFile?: string;
-                containers: any[];
+                containers: Array<{
+                  id: string;
+                  name: string;
+                  image?: string;
+                  imageId?: string;
+                  state?: string;
+                  status?: string;
+                  created?: string;
+                  command?: string;
+                  env: string[];
+                  mounts: DockerMount[];
+                  networks: string[];
+                  ports: DockerPortMapping[];
+                  composeProject?: string;
+                  composeService?: string;
+                  cpuPercent: number;
+                  memoryUsage: number;
+                }>;
               }
             >();
 
@@ -1857,7 +1960,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                 for (const [key, val] of Object.entries(data)) {
                   if (key === "_forgotten") continue;
                   if (val && typeof val === "object" && !forgottenProjects.has(key.toLowerCase())) {
-                    knownProjects.set(key.toLowerCase(), val as any);
+                    knownProjects.set(key.toLowerCase(), val as (typeof knownProjects extends Map<string, infer V> ? V : never));
                   }
                 }
               }
@@ -1916,7 +2019,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                   state: c.State,
                   status: c.Status,
                   created: new Date((c.Created || 0) * 1000).toISOString(),
-                  ports: (c.Ports || []).map((pt: any) => ({
+                  ports: (c.Ports || []).map((pt: DockerPortMapping) => ({
                     ip: pt.IP,
                     privatePort: pt.PrivatePort,
                     publicPort: pt.PublicPort,
@@ -2013,7 +2116,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
             }
 
             try {
-              const toPersist: Record<string, any> = {};
+              const toPersist: JsonRecord = {};
               for (const [k, v] of knownProjects.entries()) {
                 if (!forgottenProjects.has(k.toLowerCase())) {
                   toPersist[k] = v;
@@ -2095,7 +2198,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                 fs.writeFileSync(targetFile, yamlContent, "utf-8");
                 res.setHeader("Content-Type", "application/json");
                 res.end(JSON.stringify({ ok: true, file: targetFile }));
-              } catch (err: any) {
+              } catch (err) {
                 res.statusCode = 500;
                 res.end(JSON.stringify({ error: err.message }));
               }
@@ -2126,7 +2229,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                     })
                   );
                 });
-              } catch (err: any) {
+              } catch (err) {
                 res.statusCode = 500;
                 res.end(JSON.stringify({ error: err.message }));
               }
@@ -2208,7 +2311,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                 const fileArg = configFile ? `-f "${configFile}"` : "";
 
                 try {
-                  let existing: Record<string, any> = {};
+                  let existing: JsonRecord = {};
                   if (fs.existsSync(knownProjectsFile)) {
                     existing = JSON.parse(fs.readFileSync(knownProjectsFile, "utf-8"));
                   }
@@ -2239,7 +2342,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                   res.setHeader("Content-Type", "application/json");
                   res.end(JSON.stringify({ ok: true }));
                 });
-              } catch (err: any) {
+              } catch (err) {
                 res.statusCode = 500;
                 res.end(JSON.stringify({ error: err.message }));
               }
@@ -2322,7 +2425,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                 totalSize,
                 totalReclaimable,
               }));
-            } catch (err: any) {
+            } catch (err) {
               res.statusCode = 500;
               res.setHeader("Content-Type", "application/json");
               res.end(JSON.stringify({ error: err?.message || "Failed to retrieve disk usage" }));
@@ -2340,7 +2443,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                 let containersDeleted = 0;
                 let imagesDeleted = 0;
                 let volumesDeleted = 0;
-                let buildCacheDeleted = 0;
+                const buildCacheDeleted = 0;
 
                 if (Array.isArray(options.containerIds) && options.containerIds.length > 0) {
                   for (const cid of options.containerIds) {
@@ -2445,7 +2548,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
                   volumesDeleted,
                   buildCacheDeleted,
                 }));
-              } catch (err: any) {
+              } catch (err) {
                 res.statusCode = 500;
                 res.setHeader("Content-Type", "application/json");
                 res.end(JSON.stringify({ ok: false, error: err?.message || "Failed to prune system" }));
@@ -2459,7 +2562,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
           }
           res.statusCode = 404;
           res.end("Not Found");
-        } catch (err: any) {
+        } catch (err) {
           res.statusCode = 502;
           res.setHeader("Content-Type", "application/json");
           res.end(JSON.stringify({ error: err.message || "Failed to communicate with container daemon" }));
@@ -2467,7 +2570,7 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
   };
 }
 
-export function attachPtyWebSocket(server: any) {
+export function attachPtyWebSocket(server: http.Server) {
   if (!server) return;
 
   try {
@@ -2484,7 +2587,11 @@ export function attachPtyWebSocket(server: any) {
 
   const wss = new WebSocketServer({ noServer: true });
 
-  const ptyUpgradeHandler = (req: any, socket: any, head: any) => {
+  const ptyUpgradeHandler = (
+    req: http.IncomingMessage,
+    socket: import("net").Socket,
+    head: Buffer,
+  ) => {
     const url = req.url || "";
     const match = url.match(/^\/api\/containers\/([a-zA-Z0-9_-]+)\/pty/);
     if (!match) {
@@ -2499,7 +2606,7 @@ export function attachPtyWebSocket(server: any) {
       socket.setKeepAlive(true, 10000);
     } catch {}
 
-    wss.handleUpgrade(req, socket, head, async (ws: any) => {
+    wss.handleUpgrade(req, socket, head, async (ws: import("ws").WebSocket) => {
       try {
         const { activeEngine } = await detectEngines();
         if (!activeEngine || activeEngine.status !== "running") {
@@ -2678,14 +2785,14 @@ export function attachPtyWebSocket(server: any) {
           }
         });
 
-        rawSocket.on("error", (err: any) => {
+        rawSocket.on("error", (err: Error) => {
           if (ws.readyState === 1) {
             ws.send(`\r\n\x1b[31m[Exec Socket Error]: ${err.message}\x1b[0m\r\n`);
             ws.close();
           }
         });
 
-        ws.on("message", (msg: any) => {
+        ws.on("message", (msg: import("ws").RawData) => {
           let str = "";
           if (typeof msg === "string") {
             str = msg;
@@ -2735,7 +2842,7 @@ export function attachPtyWebSocket(server: any) {
             rawSocket.destroy();
           } catch {}
         });
-      } catch (err: any) {
+      } catch (err) {
         if (ws.readyState === 1) {
           ws.send(`\r\n\x1b[31m[Error]: ${err.message}\x1b[0m\r\n`);
           ws.close();
@@ -2744,7 +2851,8 @@ export function attachPtyWebSocket(server: any) {
     });
   };
 
-  (ptyUpgradeHandler as any).__isPtyHandler = true;
+  (ptyUpgradeHandler as unknown as { __isPtyHandler?: boolean }).__isPtyHandler =
+    true;
   server.on("upgrade", ptyUpgradeHandler);
 }
 

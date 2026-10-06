@@ -1,10 +1,11 @@
 import React from "react";
+import { Translations } from "@/lib/i18n";
 import { Loader2 } from "lucide-react";
 import { ContainerFileItem } from "@/types";
 
 interface RenameModalProps {
   renameModal: { item: ContainerFileItem; newName: string } | null;
-  fm: Record<string, any>;
+  fm: Translations["containers"]["fileManager"];
   onClose: () => void;
   onSave: (newName: string) => void;
   onChangeName: (newName: string) => void;
@@ -75,7 +76,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
 
 interface NewFolderModalProps {
   newFolderModal: { name: string } | null;
-  fm: Record<string, any>;
+  fm: Translations["containers"]["fileManager"];
   onClose: () => void;
   onSave: (name: string) => void;
   onChangeName: (name: string) => void;
@@ -148,7 +149,7 @@ export const NewFolderModal: React.FC<NewFolderModalProps> = ({
 
 interface NewFileModalProps {
   newFileModal: { name: string } | null;
-  fm: Record<string, any>;
+  fm: Translations["containers"]["fileManager"];
   onClose: () => void;
   onSave: (name: string) => void;
   onChangeName: (name: string) => void;
@@ -220,7 +221,7 @@ export const NewFileModal: React.FC<NewFileModalProps> = ({
 interface DeleteConfirmModalProps {
   deleteModal: { items: ContainerFileItem[] } | null;
   isDeleting: boolean;
-  fm: Record<string, any>;
+  fm: Translations["containers"]["fileManager"];
   onClose: () => void;
   onConfirm: () => void;
 }

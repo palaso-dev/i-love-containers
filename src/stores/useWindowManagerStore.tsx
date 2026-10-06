@@ -59,7 +59,13 @@ interface WindowManagerContextValue {
   toggleWindowLogPause: (windowId: string) => void;
   toggleWindowLogAutoScroll: (windowId: string) => void;
   toggleWindowLogTimestamps: (windowId: string) => void;
-  toggleWindowServiceFilter: (windowId: string, serviceName: string) => void;
+  toggleWindowServiceFilter: (
+    windowId: string,
+    serviceName: string,
+    solo?: boolean,
+    allAvailable?: string[],
+  ) => void;
+  setWindowServiceFilters: (windowId: string, filters: string[] | null) => void;
 }
 
 const WindowManagerContext = createContext<
@@ -238,7 +244,7 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         isMaximized: false,
         createdAt: Date.now(),
         logs: initialLogs,
-        activeServiceFilters: serviceContainers.map((s) => s.name),
+        activeServiceFilters: undefined,
         isPaused: false,
         autoScroll: true,
         showTimestamps: true,
@@ -446,18 +452,46 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const toggleWindowServiceFilter = useCallback(
-    (windowId: string, serviceName: string) => {
+    (
+      windowId: string,
+      serviceName: string,
+      solo?: boolean,
+      allAvailable?: string[],
+    ) => {
       setWindows((prev) =>
         prev.map((w) => {
           if (w.id !== windowId) return w;
-          const filters = w.activeServiceFilters || [];
-          const exists = filters.includes(serviceName);
+          if (solo) {
+            return {
+              ...w,
+              activeServiceFilters: [serviceName],
+            };
+          }
+          const filters = w.activeServiceFilters;
+          const effectiveFilters =
+            filters === undefined ? (allAvailable || []) : filters;
+          const exists = effectiveFilters.includes(serviceName);
           const updated = exists
-            ? filters.filter((name) => name !== serviceName)
-            : [...filters, serviceName];
+            ? effectiveFilters.filter((name) => name !== serviceName)
+            : [...effectiveFilters, serviceName];
           return {
             ...w,
             activeServiceFilters: updated,
+          };
+        }),
+      );
+    },
+    [],
+  );
+
+  const setWindowServiceFilters = useCallback(
+    (windowId: string, filters: string[] | null) => {
+      setWindows((prev) =>
+        prev.map((w) => {
+          if (w.id !== windowId) return w;
+          return {
+            ...w,
+            activeServiceFilters: filters === null ? undefined : filters,
           };
         }),
       );
@@ -486,6 +520,7 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     toggleWindowLogAutoScroll,
     toggleWindowLogTimestamps,
     toggleWindowServiceFilter,
+    setWindowServiceFilters,
   };
 
   return (

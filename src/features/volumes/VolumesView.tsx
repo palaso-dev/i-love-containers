@@ -89,7 +89,9 @@ export const VolumesView: React.FC = () => {
             <ArrowUpDown className="w-3 h-3 text-muted-foreground shrink-0" />
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) =>
+                setSortBy(e.target.value as "name" | "size" | "inUse" | "created")
+              }
               className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer pr-1"
               aria-label={t.volumes.sortBy}
             >

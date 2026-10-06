@@ -1,4 +1,5 @@
 import React from "react";
+import { Translations } from "@/lib/i18n";
 import {
   Folder,
   Copy,
@@ -27,7 +28,7 @@ interface FileManagerContextMenuProps {
   selectedPaths: Set<string>;
   files: ContainerFileItem[];
   clipboard: { action: "copy" | "cut"; items: ContainerFileItem[] } | null;
-  fm: Record<string, any>;
+  fm: Translations["containers"]["fileManager"];
   onClose: () => void;
   onOpenItem: (item: ContainerFileItem) => void;
   onDownloadItem: (item?: ContainerFileItem) => void;

@@ -54,7 +54,7 @@ const server = http.createServer((req, res) => {
 
 attachPtyWebSocket(server);
 
-server.on("error", (err: any) => {
+server.on("error", (err: NodeJS.ErrnoException) => {
   if (err.code === "EADDRINUSE") {
     console.log(`[Container Engine Server] Port ${PORT} is already in use; reusing running instance.`);
     process.exit(0);

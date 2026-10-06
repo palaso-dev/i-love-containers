@@ -87,6 +87,8 @@ export function useCanvasInteraction({
     hasMoved: boolean;
   } | null>(null);
 
+  const saveLayoutRef = useRef<typeof saveLayout | null>(null);
+  const loadOrInitLayoutRef = useRef<typeof loadOrInitLayout | null>(null);
   const saveLayout = (
     positions: Record<string, { x: number; y: number }>,
     currentView: { x: number; y: number; zoom: number },
@@ -233,6 +235,9 @@ export function useCanvasInteraction({
     handleResetView();
   };
 
+  saveLayoutRef.current = saveLayout;
+  loadOrInitLayoutRef.current = loadOrInitLayout;
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -242,7 +247,7 @@ export function useCanvasInteraction({
         if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
           if (initializedProjectRef.current !== projectName) {
             initializedProjectRef.current = projectName;
-            loadOrInitLayout();
+            loadOrInitLayoutRef.current?.();
           }
         }
       }
@@ -301,7 +306,7 @@ export function useCanvasInteraction({
           clearTimeout(wheelSaveTimeoutRef.current);
         }
         wheelSaveTimeoutRef.current = setTimeout(() => {
-          saveLayout(nodePositionsRef.current, nextView);
+          saveLayoutRef.current?.(nodePositionsRef.current, nextView);
         }, 300);
       } else {
         const { x, y, zoom } = viewRef.current;
@@ -315,7 +320,7 @@ export function useCanvasInteraction({
           clearTimeout(wheelSaveTimeoutRef.current);
         }
         wheelSaveTimeoutRef.current = setTimeout(() => {
-          saveLayout(nodePositionsRef.current, nextView);
+          saveLayoutRef.current?.(nodePositionsRef.current, nextView);
         }, 300);
       }
     };
@@ -550,7 +555,7 @@ export function useCanvasInteraction({
         draggingNodeRef.current = null;
 
         if (wasDrag) {
-          saveLayout(nodePositionsRef.current, viewRef.current);
+          saveLayoutRef.current?.(nodePositionsRef.current, viewRef.current);
         } else if (nodeType === "service") {
           onSelectService(nodeId);
         }
@@ -560,7 +565,7 @@ export function useCanvasInteraction({
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
         setIsDragging(false);
-        saveLayout(nodePositionsRef.current, viewRef.current);
+        saveLayoutRef.current?.(nodePositionsRef.current, viewRef.current);
       }
     };
 

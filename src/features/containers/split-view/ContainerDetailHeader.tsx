@@ -1,4 +1,6 @@
 import React from "react";
+import { NativeWindowOptions } from "@/lib/nativeWindow";
+import { Translations } from "@/lib/i18n";
 import {
   Play,
   Square,
@@ -17,11 +19,11 @@ import { useAppStore } from "@/stores/useAppStore";
 
 
 interface ContainerDetailHeaderProps {
-  t: any;
+  t: Translations;
   activeContainer: ContainerDetail;
   isCompactDetail: boolean;
   containerDetailTab: string;
-  tabs: Array<{ id: any; label: string; icon: any }>;
+  tabs: Array<{ id: string; label: string; icon: React.ComponentType<{ className?: string }> }>;
   getStatusDot: (state: ContainerState, size?: "sm" | "md") => string;
   startContainer: (id: string) => Promise<boolean | void>;
   stopContainer: (id: string) => Promise<boolean | void>;
@@ -29,7 +31,7 @@ interface ContainerDetailHeaderProps {
   unpauseContainer: (id: string) => Promise<boolean | void>;
   restartContainer: (id: string) => Promise<boolean | void>;
   setContainerToDelete: (c: ContainerDetail) => void;
-  setActiveTab: (tab: any) => void;
+  setActiveTab: (tab: string) => void;
   setSelectedImageId: (id: string | null) => void;
 }
 
@@ -184,7 +186,7 @@ export const ContainerDetailHeader: React.FC<ContainerDetailHeaderProps> = ({
               openRealNativeWindow({
                 id: `${tabType}-${activeContainer.id}-${Date.now()}`,
                 title: `${cleanName} — ${tabTitle}`,
-                type: tabType as any,
+                type: tabType as NativeWindowOptions["type"],
                 containerId: activeContainer.id,
                 containerName: cleanName,
               });

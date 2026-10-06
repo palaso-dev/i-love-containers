@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { getErrorMessage } from "@/lib/utils";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -127,8 +128,8 @@ export const PersistentTerminal: React.FC<PersistentTerminalProps> = ({
               } else if (res.output) {
                 term.writeln(res.output.replace(/\r?\n/g, "\r\n"));
               }
-            } catch (err: any) {
-              term.writeln(`\x1b[31merror: ${err.message}\x1b[0m`);
+            } catch (err) {
+              term.writeln(`\x1b[31merror: ${getErrorMessage(err)}\x1b[0m`);
             }
           } else {
             try {
@@ -146,8 +147,8 @@ export const PersistentTerminal: React.FC<PersistentTerminalProps> = ({
                   term.writeln("");
                 }
               }
-            } catch (err: any) {
-              term.writeln(`\x1b[31merror: ${err.message}\x1b[0m`);
+            } catch (err) {
+              term.writeln(`\x1b[31merror: ${getErrorMessage(err)}\x1b[0m`);
             }
           }
         } else {

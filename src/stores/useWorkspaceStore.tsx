@@ -57,7 +57,13 @@ interface WorkspaceContextValue {
   toggleSessionPause: (sessionId: string) => void;
   toggleSessionAutoScroll: (sessionId: string) => void;
   toggleSessionTimestamps: (sessionId: string) => void;
-  toggleServiceFilter: (sessionId: string, serviceName: string) => void;
+  toggleServiceFilter: (
+    sessionId: string,
+    serviceName: string,
+    solo?: boolean,
+    allAvailable?: string[],
+  ) => void;
+  setServiceFilters: (sessionId: string, filters: string[] | null) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | undefined>(
@@ -186,7 +192,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
   const openStackLogs = useCallback(
     (
       composeProject: string,
-      serviceContainers: Array<{ id: string; name: string }>,
+      _serviceContainers: Array<{ id: string; name: string }>,
     ) => {
       const existing = sessions.find(
         (s: WorkspaceSession) =>
@@ -207,7 +213,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
         composeProject,
         createdAt: Date.now(),
         logs: [],
-        activeServiceFilters: serviceContainers.map((s) => s.name),
+        activeServiceFilters: undefined,
         isPaused: false,
         autoScroll: true,
         showTimestamps: true,
@@ -314,18 +320,48 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const toggleServiceFilter = useCallback(
-    (sessionId: string, serviceName: string) => {
+    (
+      sessionId: string,
+      serviceName: string,
+      solo?: boolean,
+      allAvailable?: string[],
+    ) => {
       setSessions((prev) =>
         prev.map((session: WorkspaceSession) => {
           if (session.id !== sessionId) return session;
-          const currentFilters = session.activeServiceFilters || [];
-          const exists = currentFilters.includes(serviceName);
+          if (solo) {
+            return {
+              ...session,
+              activeServiceFilters: [serviceName],
+            };
+          }
+          const currentFilters = session.activeServiceFilters;
+          const effectiveFilters =
+            currentFilters === undefined
+              ? (allAvailable || [])
+              : currentFilters;
+          const exists = effectiveFilters.includes(serviceName);
           const updated = exists
-            ? currentFilters.filter((name: string) => name !== serviceName)
-            : [...currentFilters, serviceName];
+            ? effectiveFilters.filter((name: string) => name !== serviceName)
+            : [...effectiveFilters, serviceName];
           return {
             ...session,
             activeServiceFilters: updated,
+          };
+        }),
+      );
+    },
+    [],
+  );
+
+  const setServiceFilters = useCallback(
+    (sessionId: string, filters: string[] | null) => {
+      setSessions((prev) =>
+        prev.map((session: WorkspaceSession) => {
+          if (session.id !== sessionId) return session;
+          return {
+            ...session,
+            activeServiceFilters: filters === null ? undefined : filters,
           };
         }),
       );
@@ -358,6 +394,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
     toggleSessionAutoScroll,
     toggleSessionTimestamps,
     toggleServiceFilter,
+    setServiceFilters,
   };
 
   return (

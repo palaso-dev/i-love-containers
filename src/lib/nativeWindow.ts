@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
-interface NativeWindowOptions {
+export interface NativeWindowOptions {
   id: string;
   title: string;
   type: "terminal" | "logs" | "files" | "stats" | "inspect" | "overview";
@@ -46,7 +46,7 @@ export async function openRealNativeWindow(options: NativeWindowOptions) {
       width,
       height,
     });
-  } catch (_tauriError) {
+  } catch {
     window.open(
       fullUrl,
       sanitizedId,
@@ -58,7 +58,7 @@ export async function openRealNativeWindow(options: NativeWindowOptions) {
 export async function openExternalUrl(url: string) {
   try {
     await invoke("open_external_url", { url });
-  } catch (_tauriError) {
+  } catch {
     window.open(url, "_blank", "noopener,noreferrer");
   }
 }

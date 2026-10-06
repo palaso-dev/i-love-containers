@@ -61,7 +61,6 @@ export const ComposeView: React.FC = () => {
   const [savedStacks, setSavedStacks] = useState<SavedStackProject[]>(() =>
     getSavedStackProjects(),
   );
-  const [aliasesVersion, setAliasesVersion] = useState(0);
   const [isStackModalOpen, setIsStackModalOpen] = useState(false);
   const [editingStack, setEditingStack] = useState<SavedStackProject | null>(
     null,
@@ -71,12 +70,11 @@ export const ComposeView: React.FC = () => {
 
   const refreshSavedStacks = () => {
     setSavedStacks(getSavedStackProjects());
-    setAliasesVersion((v) => v + 1);
   };
 
   useEffect(() => {
     refreshData();
-  }, []);
+  }, [refreshData]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -179,13 +177,17 @@ export const ComposeView: React.FC = () => {
       }
     }
     return list;
-  }, [composeProjects, savedStacks, aliasesVersion, containers]);
+  }, [composeProjects, savedStacks, containers]);
 
-  const activeProject = mergedProjects[selectedProjectIndex] ||
-    mergedProjects[0] || {
-      name: "compose",
-      containers: [],
-    };
+  const activeProject = useMemo(
+    () =>
+      mergedProjects[selectedProjectIndex] ||
+      mergedProjects[0] || {
+        name: "compose",
+        containers: [],
+      },
+    [mergedProjects, selectedProjectIndex],
+  );
   const projectName = activeProject?.name || "compose";
 
   const [composeYaml, setComposeYaml] = useState<string>(() => {
@@ -220,10 +222,6 @@ export const ComposeView: React.FC = () => {
   const topology = useMemo(() => {
     return parseComposeYaml(composeYaml, activeProject?.containers || []);
   }, [composeYaml, activeProject]);
-
-  if (!isConnected) {
-    return <DockerDisconnected icon={FolderGit2} />;
-  }
 
   const handleYamlChange = (newYaml: string) => {
     setComposeYaml(newYaml);
@@ -371,6 +369,9 @@ export const ComposeView: React.FC = () => {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const processDroppedYamlRef = useRef<
+    ((filePath?: string, content?: string) => Promise<void>) | null
+  >(null);
   const processDroppedYaml = async (filePath?: string, content?: string) => {
     let text = content || "";
     if (!text && filePath) {
@@ -428,6 +429,8 @@ export const ComposeView: React.FC = () => {
     setSelectedProjectIndex(0);
   };
 
+  processDroppedYamlRef.current = processDroppedYaml;
+
   useEffect(() => {
     let isMounted = true;
     let unlisten: (() => void) | null = null;
@@ -446,7 +449,7 @@ export const ComposeView: React.FC = () => {
             if (paths && paths.length > 0) {
               const yamlPath = paths.find((p) => p.endsWith(".yml") || p.endsWith(".yaml")) || paths[0];
               if (yamlPath) {
-                await processDroppedYaml(yamlPath);
+                await processDroppedYamlRef.current?.(yamlPath);
               }
             }
           } else {
@@ -467,6 +470,10 @@ export const ComposeView: React.FC = () => {
       if (unlisten) unlisten();
     };
   }, []);
+
+  if (!isConnected) {
+    return <DockerDisconnected icon={FolderGit2} />;
+  }
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -496,7 +503,8 @@ export const ComposeView: React.FC = () => {
 
     if (!targetFile) return;
 
-    const filePath = (targetFile as any).path || "";
+    const filePath =
+      (targetFile as File & { path?: string }).path || "";
     const text = await targetFile.text();
     await processDroppedYaml(filePath || undefined, text);
   };

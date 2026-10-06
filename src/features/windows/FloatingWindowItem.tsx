@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
+import { getErrorMessage } from "@/lib/utils";
 import {
   Terminal as TerminalIcon,
   FileText,
@@ -35,8 +36,9 @@ interface FloatingWindowItemProps {
 export const FloatingWindowItem: React.FC<FloatingWindowItemProps> = ({
   windowData,
 }) => {
-  const { theme } = useAppStore();
+  const { theme, language } = useAppStore();
   const isDark = theme === "dark";
+  const isEs = language === "es";
   const {
     closeWindow,
     focusWindow,
@@ -49,6 +51,7 @@ export const FloatingWindowItem: React.FC<FloatingWindowItemProps> = ({
     toggleWindowLogAutoScroll,
     toggleWindowLogTimestamps,
     toggleWindowServiceFilter,
+    setWindowServiceFilters,
   } = useWindowManagerStore();
 
   const [isDragging, setIsDragging] = useState(false);
@@ -166,8 +169,8 @@ export const FloatingWindowItem: React.FC<FloatingWindowItemProps> = ({
               } else if (res.output) {
                 term.writeln(res.output.replace(/\r?\n/g, "\r\n"));
               }
-            } catch (err: any) {
-              term.writeln(`\x1b[31merror: ${err.message}\x1b[0m`);
+            } catch (err) {
+              term.writeln(`\x1b[31merror: ${getErrorMessage(err)}\x1b[0m`);
             }
           } else {
             try {
@@ -185,8 +188,8 @@ export const FloatingWindowItem: React.FC<FloatingWindowItemProps> = ({
                   term.writeln("");
                 }
               }
-            } catch (err: any) {
-              term.writeln(`\x1b[31merror: ${err.message}\x1b[0m`);
+            } catch (err) {
+              term.writeln(`\x1b[31merror: ${getErrorMessage(err)}\x1b[0m`);
             }
           }
         } else {
@@ -220,7 +223,7 @@ export const FloatingWindowItem: React.FC<FloatingWindowItemProps> = ({
       term.dispose();
       xtermInstanceRef.current = null;
     };
-  }, [windowData, theme]);
+  }, [windowData, theme, isDark]);
 
   useEffect(() => {
     if (fitAddonRef.current) {
@@ -234,7 +237,7 @@ export const FloatingWindowItem: React.FC<FloatingWindowItemProps> = ({
   const isPaused = windowData.isPaused ?? false;
   const autoScroll = windowData.autoScroll ?? true;
   const showTimestamps = windowData.showTimestamps ?? true;
-  const activeFilters = windowData.activeServiceFilters || [];
+  const activeFilters = windowData.activeServiceFilters;
   const availableServices = Array.from(new Set(logs.map((l) => l.source)));
 
   useEffect(() => {
@@ -384,8 +387,47 @@ export const FloatingWindowItem: React.FC<FloatingWindowItemProps> = ({
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const isServiceActive = (name: string) => {
+    return activeFilters === undefined ? true : activeFilters.includes(name);
+  };
+
+  const activeCount =
+    activeFilters === undefined
+      ? availableServices.length
+      : availableServices.filter((s) => activeFilters.includes(s)).length;
+  const allSelected =
+    activeFilters === undefined || activeCount === availableServices.length;
+  const noneSelected = activeFilters !== undefined && activeCount === 0;
+
+  const handleSelectAll = () => {
+    setWindowServiceFilters(windowData.id, null);
+  };
+
+  const handleDeselectAll = () => {
+    setWindowServiceFilters(windowData.id, []);
+  };
+
+  const handleInvertSelection = () => {
+    if (activeFilters === undefined) {
+      setWindowServiceFilters(windowData.id, []);
+    } else {
+      setWindowServiceFilters(
+        windowData.id,
+        availableServices.filter((s) => !activeFilters.includes(s)),
+      );
+    }
+  };
+
+  const handleToggleService = (name: string) => {
+    toggleWindowServiceFilter(windowData.id, name, false, availableServices);
+  };
+
+  const handleSoloService = (name: string) => {
+    toggleWindowServiceFilter(windowData.id, name, true, availableServices);
+  };
+
   const filteredLogs = logs.filter((l) => {
-    if (activeFilters.length > 0 && !activeFilters.includes(l.source))
+    if (activeFilters !== undefined && !activeFilters.includes(l.source))
       return false;
     if (searchQuery.trim() === "") return true;
     return (
@@ -562,34 +604,123 @@ export const FloatingWindowItem: React.FC<FloatingWindowItemProps> = ({
             </div>
 
             {availableServices.length > 1 && (
-              <div className="px-3 py-1 bg-surface/50 border-b border-border flex items-center space-x-1.5  overflow-x-auto text-2xs font-mono shrink-0">
-                <Filter className="w-2.5 h-2.5 text-muted-foreground" />
-                {availableServices.map((serviceName) => {
-                  const isSelected = activeFilters.includes(serviceName);
-                  return (
-                    <button
-                      key={serviceName}
-                      onClick={() =>
-                        toggleWindowServiceFilter(windowData.id, serviceName)
-                      }
-                      className={`px-1.5 py-0.5 rounded transition-colors ${
-                        isSelected
-                          ? "bg-surface-secondary text-foreground font-semibold border border-border"
-                          : "text-muted-foreground opacity-50 hover:opacity-100 hover:bg-surface-secondary"
-                      }`}
-                    >
-                      {isSelected ? "● " : "○ "}
-                      {serviceName}
-                    </button>
-                  );
-                })}
+              <div className="px-3 py-1 bg-surface/50 border-b border-border flex items-center space-x-1.5 overflow-x-auto text-2xs font-mono shrink-0 select-none">
+                <div className="flex items-center space-x-1 text-muted-foreground shrink-0">
+                  <Filter className="w-2.5 h-2.5" />
+                  <span className="font-semibold">{isEs ? "Servicios" : "Services"}</span>
+                  <span className="text-[10px] text-muted-foreground/70">
+                    ({activeCount}/{availableServices.length})
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-1 shrink-0">
+                  <button
+                    onClick={handleSelectAll}
+                    className={`px-1.5 py-0.5 rounded text-[11px] transition-colors border ${
+                      allSelected
+                        ? "bg-primary/10 text-primary border-primary/30 font-semibold"
+                        : "bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
+                    }`}
+                    title={isEs ? "Seleccionar todos los servicios" : "Select all services"}
+                  >
+                    {isEs ? "Todos" : "All"}
+                  </button>
+                  <button
+                    onClick={handleDeselectAll}
+                    className={`px-1.5 py-0.5 rounded text-[11px] transition-colors border ${
+                      noneSelected
+                        ? "bg-primary/10 text-primary border-primary/30 font-semibold"
+                        : "bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
+                    }`}
+                    title={isEs ? "Deseleccionar todos los servicios" : "Deselect all services"}
+                  >
+                    {isEs ? "Ninguno" : "None"}
+                  </button>
+                  <button
+                    onClick={handleInvertSelection}
+                    className="px-1.5 py-0.5 rounded text-[11px] transition-colors border bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
+                    title={isEs ? "Invertir selección actual" : "Invert current selection"}
+                  >
+                    {isEs ? "Invertir" : "Invert"}
+                  </button>
+                </div>
+
+                <div className="h-3 w-[1px] bg-border shrink-0 mx-0.5" />
+
+                <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5">
+                  {availableServices.map((serviceName) => {
+                    const active = isServiceActive(serviceName);
+                    return (
+                      <div
+                        key={serviceName}
+                        className={`group inline-flex items-center rounded transition-all font-mono text-2xs border ${
+                          active
+                            ? "bg-surface-secondary text-foreground font-semibold border-border shadow-xs"
+                            : "text-muted-foreground opacity-50 hover:opacity-85 border-transparent hover:border-border hover:bg-surface-secondary/50"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            if (e.altKey) {
+                              handleSoloService(serviceName);
+                            } else {
+                              handleToggleService(serviceName);
+                            }
+                          }}
+                          className="inline-flex items-center space-x-1 pl-2 pr-1.5 py-0.5 cursor-pointer"
+                          title={
+                            isEs
+                              ? `${serviceName}: Clic para alternar • Alt+clic para aislar`
+                              : `${serviceName}: Click to toggle • Alt+click to isolate`
+                          }
+                        >
+                          <span className={active ? "text-primary font-bold" : "text-muted-foreground"}>
+                            {active ? "●" : "○"}
+                          </span>
+                          <span>{serviceName}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSoloService(serviceName)}
+                          className="mr-1 px-1 py-0 text-[9px] uppercase tracking-wider rounded font-mono text-muted-foreground/60 hover:text-primary hover:bg-primary/20 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                          title={isEs ? `Aislar ${serviceName} (ver solo este)` : `Isolate ${serviceName} (view only this)`}
+                        >
+                          {isEs ? "solo" : "solo"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
             <div className="flex-1 overflow-y-auto p-3 font-mono text-2xs leading-relaxed space-y-0.5 select-text">
-              {filteredLogs.map((log) => (
+              {noneSelected ? (
+                <div className="h-full flex flex-col items-center justify-center space-y-2 text-muted-foreground select-none">
+                  <Filter className="w-6 h-6 opacity-30 stroke-[1.5]" />
+                  <span className="text-2xs font-mono font-medium">
+                    {isEs ? "Ningún servicio seleccionado" : "No services selected"}
+                  </span>
+                  <button
+                    onClick={handleSelectAll}
+                    className="mt-0.5 px-2 py-0.5 text-[10px] font-mono rounded bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors"
+                  >
+                    {isEs ? "Seleccionar todos" : "Select all"}
+                  </button>
+                </div>
+              ) : filteredLogs.length === 0 ? (
                 <div
-                  key={log.id}
+                  className={`h-full flex items-center justify-center  ${
+                    isDark ? "text-slate-500" : "text-slate-400"
+                  }`}
+                >
+                  {isEs ? "No se encontraron registros" : "No log entries found"}
+                </div>
+              ) : (
+                filteredLogs.map((log) => (
+                  <div
+                    key={log.id}
                   className={`flex items-start px-1 py-0.2 rounded font-mono ${
                     isDark ? "hover:bg-white/5" : "hover:bg-slate-200/70"
                   }`}
@@ -617,8 +748,9 @@ export const FloatingWindowItem: React.FC<FloatingWindowItemProps> = ({
                     {log.message}
                   </span>
                 </div>
-              ))}
-              <div ref={logsEndRef} />
+              ))
+            )}
+            <div ref={logsEndRef} />
             </div>
           </div>
         )}

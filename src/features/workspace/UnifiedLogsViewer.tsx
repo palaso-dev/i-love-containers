@@ -37,6 +37,7 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
     toggleSessionAutoScroll,
     toggleSessionTimestamps,
     toggleServiceFilter,
+    setServiceFilters,
   } = useWorkspaceStore();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -117,7 +118,7 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
   const logs = session.logs || [];
   const autoScroll = session.autoScroll ?? true;
   const showTimestamps = session.showTimestamps ?? true;
-  const activeFilters = session.activeServiceFilters || [];
+  const activeFilters = session.activeServiceFilters;
 
   const availableServices = Array.from(new Set(logs.map((l) => l.source)));
 
@@ -264,8 +265,47 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const isServiceActive = (name: string) => {
+    return activeFilters === undefined ? true : activeFilters.includes(name);
+  };
+
+  const activeCount =
+    activeFilters === undefined
+      ? availableServices.length
+      : availableServices.filter((s) => activeFilters.includes(s)).length;
+  const allSelected =
+    activeFilters === undefined || activeCount === availableServices.length;
+  const noneSelected = activeFilters !== undefined && activeCount === 0;
+
+  const handleSelectAll = () => {
+    setServiceFilters(session.id, null);
+  };
+
+  const handleDeselectAll = () => {
+    setServiceFilters(session.id, []);
+  };
+
+  const handleInvertSelection = () => {
+    if (activeFilters === undefined) {
+      setServiceFilters(session.id, []);
+    } else {
+      setServiceFilters(
+        session.id,
+        availableServices.filter((s) => !activeFilters.includes(s)),
+      );
+    }
+  };
+
+  const handleToggleService = (name: string) => {
+    toggleServiceFilter(session.id, name, false, availableServices);
+  };
+
+  const handleSoloService = (name: string) => {
+    toggleServiceFilter(session.id, name, true, availableServices);
+  };
+
   const filteredLogs = logs.filter((l) => {
-    if (activeFilters.length > 0 && !activeFilters.includes(l.source)) {
+    if (activeFilters !== undefined && !activeFilters.includes(l.source)) {
       return false;
     }
     if (searchQuery.trim() === "") return true;
@@ -402,28 +442,94 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
       </div>
 
       {availableServices.length > 1 && (
-        <div className="px-3 py-1.5 bg-surface/50 border-b border-border flex items-center space-x-2  overflow-x-auto text-2xs font-mono shrink-0">
-          <div className="flex items-center space-x-1 text-muted-foreground">
+        <div className="px-3 py-1.5 bg-surface/50 border-b border-border flex items-center space-x-2 overflow-x-auto text-2xs font-mono shrink-0 select-none">
+          <div className="flex items-center space-x-1.5 text-muted-foreground shrink-0">
             <Filter className="w-2.5 h-2.5" />
-            <span>{isEs ? "Filtrar:" : "Filter:"}</span>
+            <span className="font-semibold">{isEs ? "Servicios" : "Services"}</span>
+            <span className="text-[10px] text-muted-foreground/70">
+              ({activeCount}/{availableServices.length})
+            </span>
           </div>
-          {availableServices.map((serviceName) => {
-            const isSelected = activeFilters.includes(serviceName);
-            return (
-              <button
-                key={serviceName}
-                onClick={() => toggleServiceFilter(session.id, serviceName)}
-                className={`px-2 py-0.5 rounded transition-colors ${
-                  isSelected
-                    ? "bg-surface-secondary text-foreground font-semibold border border-border"
-                    : "text-muted-foreground opacity-50 hover:opacity-100 hover:bg-surface-secondary"
-                }`}
-              >
-                {isSelected ? "● " : "○ "}
-                {serviceName}
-              </button>
-            );
-          })}
+
+          <div className="flex items-center space-x-1 shrink-0">
+            <button
+              onClick={handleSelectAll}
+              className={`px-1.5 py-0.5 rounded text-[11px] transition-colors border ${
+                allSelected
+                  ? "bg-primary/10 text-primary border-primary/30 font-semibold"
+                  : "bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
+              }`}
+              title={isEs ? "Seleccionar todos los servicios" : "Select all services"}
+            >
+              {isEs ? "Todos" : "All"}
+            </button>
+            <button
+              onClick={handleDeselectAll}
+              className={`px-1.5 py-0.5 rounded text-[11px] transition-colors border ${
+                noneSelected
+                  ? "bg-primary/10 text-primary border-primary/30 font-semibold"
+                  : "bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
+              }`}
+              title={isEs ? "Deseleccionar todos los servicios" : "Deselect all services"}
+            >
+              {isEs ? "Ninguno" : "None"}
+            </button>
+            <button
+              onClick={handleInvertSelection}
+              className="px-1.5 py-0.5 rounded text-[11px] transition-colors border bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
+              title={isEs ? "Invertir selección actual" : "Invert current selection"}
+            >
+              {isEs ? "Invertir" : "Invert"}
+            </button>
+          </div>
+
+          <div className="h-3 w-[1px] bg-border shrink-0 mx-0.5" />
+
+          <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5">
+            {availableServices.map((serviceName) => {
+              const active = isServiceActive(serviceName);
+              return (
+                <div
+                  key={serviceName}
+                  className={`group inline-flex items-center rounded transition-all font-mono text-2xs border ${
+                    active
+                      ? "bg-surface-secondary text-foreground font-semibold border-border shadow-xs"
+                      : "text-muted-foreground opacity-50 hover:opacity-85 border-transparent hover:border-border hover:bg-surface-secondary/50"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      if (e.altKey) {
+                        handleSoloService(serviceName);
+                      } else {
+                        handleToggleService(serviceName);
+                      }
+                    }}
+                    className="inline-flex items-center space-x-1 pl-2 pr-1.5 py-0.5 cursor-pointer"
+                    title={
+                      isEs
+                        ? `${serviceName}: Clic para alternar • Alt+clic para aislar`
+                        : `${serviceName}: Click to toggle • Alt+click to isolate`
+                    }
+                  >
+                    <span className={active ? "text-primary font-bold" : "text-muted-foreground"}>
+                      {active ? "●" : "○"}
+                    </span>
+                    <span>{serviceName}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSoloService(serviceName)}
+                    className="mr-1 px-1 py-0 text-[9px] uppercase tracking-wider rounded font-mono text-muted-foreground/60 hover:text-primary hover:bg-primary/20 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                    title={isEs ? `Aislar ${serviceName} (ver solo este)` : `Isolate ${serviceName} (view only this)`}
+                  >
+                    {isEs ? "solo" : "solo"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -432,7 +538,25 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
         style={{ fontSize: `${fontSize}px` }}
         className="flex-1 overflow-y-auto overflow-x-auto p-3 font-mono select-text leading-relaxed space-y-0.5 min-h-0 visible-scrollbar"
       >
-        {filteredLogs.length === 0 ? (
+        {noneSelected ? (
+          <div className="h-full flex flex-col items-center justify-center space-y-2.5 text-muted-foreground select-none">
+            <Filter className="w-8 h-8 opacity-30 stroke-[1.5]" />
+            <span className="text-xs font-mono font-medium">
+              {isEs ? "Ningún servicio seleccionado" : "No services selected"}
+            </span>
+            <span className="text-2xs text-muted-foreground/70">
+              {isEs
+                ? "Elige uno o más servicios en la barra superior o pulsa «Todos»"
+                : "Choose one or more services above or click 'All'"}
+            </span>
+            <button
+              onClick={handleSelectAll}
+              className="mt-1 px-3 py-1 text-2xs font-mono rounded bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors"
+            >
+              {isEs ? "Seleccionar todos" : "Select all"}
+            </button>
+          </div>
+        ) : filteredLogs.length === 0 ? (
           <div
             className={`h-full flex items-center justify-center  ${
               isDark ? "text-slate-500" : "text-slate-400"

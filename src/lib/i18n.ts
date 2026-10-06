@@ -1065,3 +1065,4 @@ export const translations = {
   },
 };
 
+export type Translations = (typeof translations)["en"];

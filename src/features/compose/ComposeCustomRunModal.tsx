@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { getErrorMessage } from "@/lib/utils";
 import { Play, X, RotateCw, AlertCircle } from "lucide-react";
 import { useAppStore } from "@/stores/useAppStore";
 import {
@@ -75,8 +76,8 @@ export const ComposeCustomRunModal: React.FC<ComposeCustomRunModalProps> = ({
       } else {
         setErrorMsg(res.stderr || "Error executing command");
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Execution failed");
+    } catch (err) {
+      setErrorMsg(getErrorMessage(err) || "Execution failed");
     } finally {
       setIsRunning(false);
     }

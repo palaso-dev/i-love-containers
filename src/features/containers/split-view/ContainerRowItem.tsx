@@ -1,4 +1,5 @@
 import React from "react";
+import { Translations } from "@/lib/i18n";
 import {
   Play,
   Square,
@@ -20,7 +21,7 @@ interface ContainerRowItemProps {
   isSelected: boolean;
   isActionInProgress: boolean;
   selectedIds: Set<string>;
-  t: any;
+  t: Translations;
   getStatusDot: (state: ContainerState, size?: "sm" | "md") => string;
   onSelectContainer: (id: string) => void;
   onToggleSelect: (id: string) => void;

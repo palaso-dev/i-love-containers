@@ -1,5 +1,28 @@
 import { parseDocument, Document, isMap, isSeq, YAMLMap } from "yaml";
 
+type YamlObject = { [key: string]: unknown };
+
+function scalarValue(node: unknown): unknown {
+  if (node === null || node === undefined) return undefined;
+  if (
+    typeof node === "object" &&
+    "valueOf" in node &&
+    typeof (node as { valueOf?: unknown }).valueOf === "function"
+  ) {
+    return (node as { valueOf: () => unknown }).valueOf();
+  }
+  return node;
+}
+
+function scalarKey(node: unknown): string {
+  const value = scalarValue(node);
+  return value == null ? "" : String(value);
+}
+
+function asYamlMap(node: unknown): YAMLMap {
+  return isMap(node) ? node : new YAMLMap();
+}
+
 export interface ComposeServiceConfig {
   name: string;
   image?: string;
@@ -50,7 +73,7 @@ export function parseComposeYamlToConfig(
   if (isMap(networksNode)) {
     for (const item of networksNode.items) {
       if (item.key != null) {
-        const k = String((item.key as any).valueOf());
+        const k = scalarKey(item.key);
         if (k && !availableNetworks.includes(k)) availableNetworks.push(k);
       }
     }
@@ -61,7 +84,7 @@ export function parseComposeYamlToConfig(
   if (isMap(volumesNode)) {
     for (const item of volumesNode.items) {
       if (item.key != null) {
-        const k = String((item.key as any).valueOf());
+        const k = scalarKey(item.key);
         if (k && !availableVolumes.includes(k)) availableVolumes.push(k);
       }
     }
@@ -72,7 +95,7 @@ export function parseComposeYamlToConfig(
 
   if (isMap(servicesNode)) {
     for (const pair of servicesNode.items) {
-      const serviceName = String((pair.key as any)?.valueOf() || "");
+      const serviceName = scalarKey(pair.key);
       if (!serviceName) continue;
 
       const svcVal = pair.value;
@@ -99,12 +122,12 @@ export function parseComposeYamlToConfig(
       const portsNode = svcVal.get("ports");
       if (isSeq(portsNode)) {
         for (const p of portsNode.items) {
-          const val = (p as any)?.valueOf();
+          const val = scalarValue(p);
           if (typeof val === "string" || typeof val === "number") {
             ports.push(String(val));
           } else if (val && typeof val === "object") {
-            const target = (val as any).target;
-            const published = (val as any).published;
+            const target = (val as YamlObject).target;
+            const published = (val as YamlObject).published;
             if (target && published) {
               ports.push(`${published}:${target}`);
             } else if (target) {
@@ -118,13 +141,13 @@ export function parseComposeYamlToConfig(
       const envNode = svcVal.get("environment");
       if (isSeq(envNode)) {
         for (const e of envNode.items) {
-          const val = (e as any)?.valueOf();
+          const val = scalarValue(e);
           if (val != null) environment.push(String(val));
         }
       } else if (isMap(envNode)) {
         for (const envPair of envNode.items) {
-          const k = String((envPair.key as any)?.valueOf() || "");
-          const v = (envPair.value as any)?.valueOf();
+          const k = scalarKey(envPair.key);
+          const v = scalarValue(envPair.value);
           if (k) {
             environment.push(`${k}=${v != null ? String(v) : ""}`);
           }
@@ -135,12 +158,12 @@ export function parseComposeYamlToConfig(
       const depNode = svcVal.get("depends_on");
       if (isSeq(depNode)) {
         for (const d of depNode.items) {
-          const val = (d as any)?.valueOf();
+          const val = scalarValue(d);
           if (val != null) dependsOn.push(String(val));
         }
       } else if (isMap(depNode)) {
         for (const depPair of depNode.items) {
-          const k = String((depPair.key as any)?.valueOf() || "");
+          const k = scalarKey(depPair.key);
           if (k) dependsOn.push(k);
         }
       }
@@ -149,12 +172,12 @@ export function parseComposeYamlToConfig(
       const netNode = svcVal.get("networks");
       if (isSeq(netNode)) {
         for (const n of netNode.items) {
-          const val = (n as any)?.valueOf();
+          const val = scalarValue(n);
           if (val != null) networks.push(String(val));
         }
       } else if (isMap(netNode)) {
         for (const netPair of netNode.items) {
-          const k = String((netPair.key as any)?.valueOf() || "");
+          const k = scalarKey(netPair.key);
           if (k) networks.push(k);
         }
       }
@@ -163,12 +186,12 @@ export function parseComposeYamlToConfig(
       const volNode = svcVal.get("volumes");
       if (isSeq(volNode)) {
         for (const v of volNode.items) {
-          const val = (v as any)?.valueOf();
+          const val = scalarValue(v);
           if (typeof val === "string") {
             volumes.push(val);
           } else if (val && typeof val === "object") {
-            const source = (val as any).source;
-            const target = (val as any).target;
+            const source = (val as YamlObject).source;
+            const target = (val as YamlObject).target;
             if (source && target) {
               volumes.push(`${source}:${target}`);
             }
@@ -191,9 +214,9 @@ export function parseComposeYamlToConfig(
       ]);
 
       for (const p of svcVal.items) {
-        const k = String((p.key as any)?.valueOf() || "");
+        const k = scalarKey(p.key);
         if (knownKeys.has(k)) continue;
-        const v = (p.value as any)?.valueOf();
+        const v = scalarValue(p.value);
         if (
           typeof v === "string" ||
           typeof v === "number" ||
@@ -205,20 +228,20 @@ export function parseComposeYamlToConfig(
 
       services.push({
         name: serviceName,
-        image: image != null ? String((image as any).valueOf()) : undefined,
+        image: image != null ? String(scalarValue(image)) : undefined,
         container_name:
           containerName != null
-            ? String((containerName as any).valueOf())
+            ? String(scalarValue(containerName))
             : undefined,
         restart:
-          restart != null ? String((restart as any).valueOf()) : undefined,
+          restart != null ? String(scalarValue(restart)) : undefined,
         platform:
-          platform != null ? String((platform as any).valueOf()) : undefined,
+          platform != null ? String(scalarValue(platform)) : undefined,
         command:
           command != null
-            ? Array.isArray((command as any).valueOf())
-              ? ((command as any).valueOf() as any[]).join(" ")
-              : String((command as any).valueOf())
+            ? Array.isArray(scalarValue(command))
+              ? (scalarValue(command) as unknown[]).join(" ")
+              : String(scalarValue(command))
             : undefined,
         ports,
         environment,
@@ -253,15 +276,16 @@ export function serializeConfigToComposeYaml(
     doc.set("services", new YAMLMap());
   }
 
-  let servicesNode = doc.get("services") as any;
+  let servicesNode = doc.get("services");
   if (!isMap(servicesNode)) {
     servicesNode = new YAMLMap();
     doc.set("services", servicesNode);
   }
+  const servicesMap = asYamlMap(servicesNode);
 
   const existingServiceKeys = new Set<string>();
-  for (const item of servicesNode.items) {
-    const k = String((item.key as any)?.valueOf() || "");
+  for (const item of servicesMap.items) {
+    const k = scalarKey(item.key);
     if (k) existingServiceKeys.add(k);
   }
 
@@ -269,16 +293,17 @@ export function serializeConfigToComposeYaml(
 
   for (const existingKey of existingServiceKeys) {
     if (!desiredServiceNames.has(existingKey)) {
-      servicesNode.delete(existingKey);
+      servicesMap.delete(existingKey);
     }
   }
 
   for (const svc of config.services) {
-    let svcMap = servicesNode.get(svc.name) as any;
-    if (!isMap(svcMap)) {
-      svcMap = new YAMLMap();
-      servicesNode.set(svc.name, svcMap);
+    let svcNode = servicesMap.get(svc.name);
+    if (!isMap(svcNode)) {
+      svcNode = new YAMLMap();
+      servicesMap.set(svc.name, svcNode);
     }
+    const svcMap = asYamlMap(svcNode);
 
     if (svc.image) svcMap.set("image", svc.image);
     else svcMap.delete("image");
@@ -312,7 +337,7 @@ export function serializeConfigToComposeYaml(
       if (isMap(existingDepNode)) {
         const existingDepKeys = new Set<string>();
         for (const depItem of existingDepNode.items) {
-          const depK = String((depItem.key as any)?.valueOf() || "");
+          const depK = scalarKey(depItem.key);
           if (depK) existingDepKeys.add(depK);
         }
 
@@ -356,31 +381,33 @@ export function serializeConfigToComposeYaml(
   }
 
   if (config.availableNetworks && config.availableNetworks.length > 0) {
-    let networksNode = doc.get("networks") as any;
+    let networksNode = doc.get("networks");
     if (!isMap(networksNode)) {
       networksNode = new YAMLMap();
       doc.set("networks", networksNode);
     }
+    const networksMap = asYamlMap(networksNode);
     for (const net of config.availableNetworks) {
-      if (!networksNode.has(net)) {
+      if (!networksMap.has(net)) {
         const netDef = new YAMLMap();
         netDef.set("driver", "bridge");
-        networksNode.set(net, netDef);
+        networksMap.set(net, netDef);
       }
     }
   }
 
   if (config.availableVolumes && config.availableVolumes.length > 0) {
-    let volumesNode = doc.get("volumes") as any;
+    let volumesNode = doc.get("volumes");
     if (!isMap(volumesNode)) {
       volumesNode = new YAMLMap();
       doc.set("volumes", volumesNode);
     }
+    const volumesMap = asYamlMap(volumesNode);
     for (const vol of config.availableVolumes) {
-      if (!volumesNode.has(vol)) {
+      if (!volumesMap.has(vol)) {
         const volDef = new YAMLMap();
         volDef.set("driver", "local");
-        volumesNode.set(vol, volDef);
+        volumesMap.set(vol, volDef);
       }
     }
   }
@@ -398,14 +425,14 @@ export function applyBulkServiceConfig(
   },
 ): string {
   const doc = parseDocument(yamlString);
-  const servicesNode = doc.get("services") as any;
+  const servicesNode = doc.get("services");
   if (!isMap(servicesNode)) {
     return yamlString;
   }
 
   const allServiceNames: string[] = [];
   for (const pair of servicesNode.items) {
-    const k = String((pair.key as any)?.valueOf() || "");
+    const k = scalarKey(pair.key);
     if (k) allServiceNames.push(k);
   }
 
@@ -414,8 +441,9 @@ export function applyBulkServiceConfig(
   );
 
   for (const svcName of targets) {
-    const svcMap = servicesNode.get(svcName) as any;
-    if (!isMap(svcMap)) continue;
+    const svcNode = servicesNode.get(svcName);
+    if (!isMap(svcNode)) continue;
+    const svcMap = asYamlMap(svcNode);
 
     switch (action.field) {
       case "platform":
@@ -438,10 +466,10 @@ export function applyBulkServiceConfig(
         const envItem = action.value.trim();
         if (envItem) {
           const [varName] = envItem.split("=");
-          const envNode = svcMap.get("environment") as any;
+          const envNode = svcMap.get("environment");
           if (isSeq(envNode)) {
-            const idx = envNode.items.findIndex((item: any) =>
-              String(item?.valueOf() || "").startsWith(`${varName}=`),
+            const idx = envNode.items.findIndex((item: unknown) =>
+              scalarKey(scalarValue(item)).startsWith(`${varName}=`),
             );
             if (idx >= 0) {
               envNode.items[idx] = envItem;
@@ -461,10 +489,10 @@ export function applyBulkServiceConfig(
       case "network": {
         const netName = action.value.trim();
         if (netName) {
-          const netNode = svcMap.get("networks") as any;
+          const netNode = svcMap.get("networks");
           if (isSeq(netNode)) {
             const exists = netNode.items.some(
-              (item: any) => String(item?.valueOf() || "") === netName,
+              (item: unknown) => scalarKey(scalarValue(item)) === netName,
             );
             if (!exists) {
               netNode.add(netName);
@@ -473,15 +501,16 @@ export function applyBulkServiceConfig(
             svcMap.set("networks", [netName]);
           }
 
-          let topNetworks = doc.get("networks") as any;
+          let topNetworks = doc.get("networks");
           if (!isMap(topNetworks)) {
             topNetworks = new YAMLMap();
             doc.set("networks", topNetworks);
           }
-          if (!topNetworks.has(netName)) {
+          const topNetworksMap = asYamlMap(topNetworks);
+          if (!topNetworksMap.has(netName)) {
             const def = new YAMLMap();
             def.set("driver", "bridge");
-            topNetworks.set(netName, def);
+            topNetworksMap.set(netName, def);
           }
         }
         break;

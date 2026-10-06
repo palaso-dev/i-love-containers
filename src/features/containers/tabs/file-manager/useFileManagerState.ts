@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { Translations } from "@/lib/i18n";
 import { ContainerFileItem, ContainerState } from "@/types";
 import {
   fetchContainerFiles,
@@ -17,10 +18,15 @@ import {
 import { getUniqueDuplicateName } from "./fileTypes";
 import { ViewerModalState } from "./FileViewerModal";
 
+interface TauriDragDropPayload {
+  type: string;
+  paths: string[];
+}
+
 export function useFileManagerState(
   containerId: string,
   state: ContainerState,
-  fm: Record<string, any>,
+  fm: Translations["containers"]["fileManager"],
 ) {
   const isRunning = state === "running";
   const cached = getFileManagerCache(containerId);
@@ -265,7 +271,7 @@ export function useFileManagerState(
 
       try {
         const { listen } = await import("@tauri-apps/api/event");
-        const unlistenFn = await listen<any>(
+        const unlistenFn = await listen<TauriDragDropPayload>(
           "tauri://drag-drop",
           async (event) => {
             if (!isMounted) return;
@@ -434,6 +440,7 @@ export function useFileManagerState(
     loadFiles(currentPath);
   };
 
+  const handleItemDoubleClickRef = useRef<typeof handleItemDoubleClick | null>(null);
   const handleItemDoubleClick = async (item: ContainerFileItem) => {
     if (item.isDirectory) {
       navigateTo(item.path);
@@ -473,6 +480,8 @@ export function useFileManagerState(
       }
       return sortAsc ? cmp : -cmp;
     });
+
+  handleItemDoubleClickRef.current = handleItemDoubleClick;
 
   const handleSelect = (e: React.MouseEvent, item: ContainerFileItem) => {
     e.stopPropagation();
@@ -998,7 +1007,7 @@ export function useFileManagerState(
           const item = files.find((f) => f.path === selectedPath);
           if (item) {
             e.preventDefault();
-            handleItemDoubleClick(item);
+            handleItemDoubleClickRef.current?.(item);
           }
         }
       } else if (e.key === "Escape") {

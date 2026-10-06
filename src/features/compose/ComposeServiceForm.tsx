@@ -414,7 +414,7 @@ export const ComposeServiceForm: React.FC<ComposeServiceFormProps> = ({
                 onChange={(e) =>
                   updateCurrentService((s) => {
                     const val = e.target.value;
-                    s.restart = val === "none" ? undefined : (val as any);
+                    s.restart = val === "none" ? undefined : val;
                   })
                 }
                 className="w-full px-3 py-1.5 text-xs font-mono bg-surface border border-border/70 rounded-lg text-foreground focus:outline-none focus:border-primary cursor-pointer shadow-xs min-w-0"

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { Trash2, RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
 import { useAppStore } from "@/stores/useAppStore";
@@ -146,7 +146,7 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({
     return 12.5;
   });
 
-  const handleZoomIn = () => {
+  const handleZoomIn = useCallback(() => {
     const session = getOrCreateTerminalSession(
       containerId,
       containerName,
@@ -154,9 +154,9 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({
     );
     session.zoomIn();
     setTerminalFontSize(session.fontSize);
-  };
+  }, [containerId, containerName, isDark]);
 
-  const handleZoomOut = () => {
+  const handleZoomOut = useCallback(() => {
     const session = getOrCreateTerminalSession(
       containerId,
       containerName,
@@ -164,9 +164,9 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({
     );
     session.zoomOut();
     setTerminalFontSize(session.fontSize);
-  };
+  }, [containerId, containerName, isDark]);
 
-  const handleResetZoom = () => {
+  const handleResetZoom = useCallback(() => {
     const session = getOrCreateTerminalSession(
       containerId,
       containerName,
@@ -174,7 +174,7 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({
     );
     session.resetZoom();
     setTerminalFontSize(session.fontSize);
-  };
+  }, [containerId, containerName, isDark]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -196,7 +196,7 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isActive, containerId, containerName, isDark]);
+  }, [isActive, handleResetZoom, handleZoomIn, handleZoomOut]);
 
   if (!isRunning && state) {
     return (

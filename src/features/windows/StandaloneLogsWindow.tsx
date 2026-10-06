@@ -66,7 +66,7 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
     return 11;
   });
   const [wrapLines, setWrapLines] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[] | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   const handleZoomInText = () => {
@@ -280,14 +280,52 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const toggleServiceFilter = (name: string) => {
-    setActiveFilters((prev) =>
-      prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name],
-    );
+  const isServiceActive = (name: string) => {
+    return selectedServices === null || selectedServices.includes(name);
+  };
+
+  const activeCount =
+    selectedServices === null
+      ? availableServices.length
+      : availableServices.filter((s) => selectedServices.includes(s)).length;
+  const allSelected =
+    selectedServices === null || activeCount === availableServices.length;
+  const noneSelected = selectedServices !== null && activeCount === 0;
+
+  const handleSelectAll = () => {
+    setSelectedServices(null);
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedServices([]);
+  };
+
+  const handleInvertSelection = () => {
+    if (selectedServices === null) {
+      setSelectedServices([]);
+    } else {
+      setSelectedServices(
+        availableServices.filter((s) => !selectedServices.includes(s)),
+      );
+    }
+  };
+
+  const handleToggleService = (name: string) => {
+    if (selectedServices === null) {
+      setSelectedServices(availableServices.filter((s) => s !== name));
+    } else if (selectedServices.includes(name)) {
+      setSelectedServices(selectedServices.filter((s) => s !== name));
+    } else {
+      setSelectedServices([...selectedServices, name]);
+    }
+  };
+
+  const handleSoloService = (name: string) => {
+    setSelectedServices([name]);
   };
 
   const filteredLogs = logs.filter((l) => {
-    if (activeFilters.length > 0 && !activeFilters.includes(l.source))
+    if (selectedServices !== null && !selectedServices.includes(l.source))
       return false;
     if (searchQuery.trim() === "") return true;
     return (
@@ -471,27 +509,94 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
       </div>
 
       {availableServices.length > 1 && (
-        <div className="px-4 py-1.5 bg-surface/60 border-b border-border flex items-center space-x-2 font-mono text-2xs shrink-0 overflow-x-auto">
-          <Filter className="w-3 h-3 text-muted-foreground" />
-          <span className="text-muted-foreground mr-1">{isEs ? "Servicios:" : "Services:"}</span>
-          {availableServices.map((name) => {
-            const active =
-              activeFilters.length === 0 || activeFilters.includes(name);
-            return (
-              <button
-                key={name}
-                onClick={() => toggleServiceFilter(name)}
-                className={`px-2 py-0.5 rounded transition-colors ${
-                  active
-                    ? "bg-surface-secondary text-foreground font-semibold border border-border"
-                    : "text-muted-foreground opacity-50 hover:opacity-100 hover:bg-surface-secondary"
-                }`}
-              >
-                {active ? "● " : "○ "}
-                {name}
-              </button>
-            );
-          })}
+        <div className="px-4 py-1.5 bg-surface/60 border-b border-border flex items-center space-x-2 font-mono text-2xs shrink-0 overflow-x-auto select-none">
+          <div className="flex items-center space-x-1.5 text-muted-foreground shrink-0">
+            <Filter className="w-3 h-3" />
+            <span className="font-semibold">{isEs ? "Servicios" : "Services"}</span>
+            <span className="text-[10px] text-muted-foreground/70">
+              ({activeCount}/{availableServices.length})
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-1 shrink-0">
+            <button
+              onClick={handleSelectAll}
+              className={`px-1.5 py-0.5 rounded text-[11px] transition-colors border ${
+                allSelected
+                  ? "bg-primary/10 text-primary border-primary/30 font-semibold"
+                  : "bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
+              }`}
+              title={isEs ? "Seleccionar todos los servicios" : "Select all services"}
+            >
+              {isEs ? "Todos" : "All"}
+            </button>
+            <button
+              onClick={handleDeselectAll}
+              className={`px-1.5 py-0.5 rounded text-[11px] transition-colors border ${
+                noneSelected
+                  ? "bg-primary/10 text-primary border-primary/30 font-semibold"
+                  : "bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
+              }`}
+              title={isEs ? "Deseleccionar todos los servicios" : "Deselect all services"}
+            >
+              {isEs ? "Ninguno" : "None"}
+            </button>
+            <button
+              onClick={handleInvertSelection}
+              className="px-1.5 py-0.5 rounded text-[11px] transition-colors border bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
+              title={isEs ? "Invertir selección actual" : "Invert current selection"}
+            >
+              {isEs ? "Invertir" : "Invert"}
+            </button>
+          </div>
+
+          <div className="h-3 w-[1px] bg-border shrink-0 mx-0.5" />
+
+          <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5">
+            {availableServices.map((name) => {
+              const active = isServiceActive(name);
+              return (
+                <div
+                  key={name}
+                  className={`group inline-flex items-center rounded transition-all font-mono text-2xs border ${
+                    active
+                      ? "bg-surface-secondary text-foreground font-semibold border-border shadow-xs"
+                      : "text-muted-foreground opacity-50 hover:opacity-85 border-transparent hover:border-border hover:bg-surface-secondary/50"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      if (e.altKey) {
+                        handleSoloService(name);
+                      } else {
+                        handleToggleService(name);
+                      }
+                    }}
+                    className="inline-flex items-center space-x-1.5 pl-2 pr-1.5 py-0.5 cursor-pointer"
+                    title={
+                      isEs
+                        ? `${name}: Clic para alternar • Alt+clic para aislar`
+                        : `${name}: Click to toggle • Alt+click to isolate`
+                    }
+                  >
+                    <span className={active ? "text-primary font-bold" : "text-muted-foreground"}>
+                      {active ? "●" : "○"}
+                    </span>
+                    <span>{name}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSoloService(name)}
+                    className="mr-1 px-1 py-0 text-[9px] uppercase tracking-wider rounded font-mono text-muted-foreground/60 hover:text-primary hover:bg-primary/20 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                    title={isEs ? `Aislar ${name} (ver solo este)` : `Isolate ${name} (view only this)`}
+                  >
+                    {isEs ? "solo" : "solo"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -501,7 +606,25 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
           isDark ? "bg-[#090b10] text-slate-200" : "bg-[#f8fafc] text-slate-800"
         }`}
       >
-        {filteredLogs.length === 0 ? (
+        {noneSelected ? (
+          <div className="h-full flex flex-col items-center justify-center space-y-2.5 text-muted-foreground select-none">
+            <Filter className="w-8 h-8 opacity-30 stroke-[1.5]" />
+            <span className="text-xs font-mono font-medium">
+              {isEs ? "Ningún servicio seleccionado" : "No services selected"}
+            </span>
+            <span className="text-2xs text-muted-foreground/70">
+              {isEs
+                ? "Elige uno o más servicios en la barra superior o pulsa «Todos»"
+                : "Choose one or more services above or click 'All'"}
+            </span>
+            <button
+              onClick={handleSelectAll}
+              className="mt-1 px-3 py-1 text-2xs font-mono rounded bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors"
+            >
+              {isEs ? "Seleccionar todos" : "Select all"}
+            </button>
+          </div>
+        ) : filteredLogs.length === 0 ? (
           <div
             className={`h-full flex items-center justify-center  ${
               isDark ? "text-slate-500" : "text-slate-400"

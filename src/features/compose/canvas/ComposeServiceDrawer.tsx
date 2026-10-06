@@ -1,4 +1,5 @@
 import React from "react";
+import { Translations } from "@/lib/i18n";
 import {
   X,
   Play,
@@ -16,7 +17,7 @@ import { openRealNativeWindow } from "@/lib/nativeWindow";
 interface ComposeServiceDrawerProps {
   selectedService: ComposeServiceNode;
   actionLoading: boolean;
-  t: any;
+  t: Translations;
   onClose: () => void;
   handleServiceAction: (
     serviceId: string,

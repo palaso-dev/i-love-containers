@@ -1,4 +1,5 @@
 import React, { useRef } from "react";
+import { Translations } from "@/lib/i18n";
 import { FileText, RotateCcw, Save, Download, X, File } from "lucide-react";
 import { ContainerFileItem } from "@/types";
 
@@ -13,7 +14,7 @@ export interface ViewerModalState {
 interface FileViewerModalProps {
   viewerModal: ViewerModalState;
   containerId: string;
-  fm: Record<string, any>;
+  fm: Translations["containers"]["fileManager"];
   onClose: () => void;
   onDiscardChanges: () => void;
   onSaveAndClose: () => void;
