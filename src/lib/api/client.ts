@@ -9,27 +9,38 @@ export function getApiUrl(path: string): string {
   return `http://127.0.0.1:${BACKEND_PORT}${path}`;
 }
 
-export function getTerminalWsUrl(containerId: string, forcePort?: number): string {
+export function getTerminalWsUrl(
+  containerId: string,
+  forcePort?: number,
+  cols?: number,
+  rows?: number,
+): string {
+  const query = cols && rows ? `?cols=${cols}&rows=${rows}` : "";
   if (forcePort) {
-    return `ws://127.0.0.1:${forcePort}/api/containers/${containerId}/pty`;
+    return `ws://127.0.0.1:${forcePort}/api/containers/${containerId}/pty${query}`;
   }
   if (typeof window !== "undefined") {
     const loc = window.location;
     if (loc.protocol === "http:" && loc.port === "5173") {
-      return `ws://${loc.hostname}:5173/api/containers/${containerId}/pty`;
+      return `ws://${loc.hostname}:5173/api/containers/${containerId}/pty${query}`;
     }
   }
-  return `ws://127.0.0.1:${BACKEND_PORT}/api/containers/${containerId}/pty`;
+  return `ws://127.0.0.1:${BACKEND_PORT}/api/containers/${containerId}/pty${query}`;
 }
 
-export function getAlternateTerminalWsUrl(containerId: string): string {
+export function getAlternateTerminalWsUrl(
+  containerId: string,
+  cols?: number,
+  rows?: number,
+): string {
+  const query = cols && rows ? `?cols=${cols}&rows=${rows}` : "";
   if (typeof window !== "undefined") {
     const loc = window.location;
     if (loc.protocol === "http:" && loc.port === "5173") {
-      return `ws://127.0.0.1:${BACKEND_PORT}/api/containers/${containerId}/pty`;
+      return `ws://127.0.0.1:${BACKEND_PORT}/api/containers/${containerId}/pty${query}`;
     }
   }
-  return `ws://127.0.0.1:5173/api/containers/${containerId}/pty`;
+  return `ws://127.0.0.1:5173/api/containers/${containerId}/pty${query}`;
 }
 
 export async function apiFetch(

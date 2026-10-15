@@ -66,6 +66,7 @@ interface WindowManagerContextValue {
     allAvailable?: string[],
   ) => void;
   setWindowServiceFilters: (windowId: string, filters: string[] | null) => void;
+  setWindowLogs: (windowId: string, logs: LogEntry[]) => void;
 }
 
 const WindowManagerContext = createContext<
@@ -397,7 +398,20 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         if (w.isPaused) return w;
         return {
           ...w,
-          logs: [...w.logs.slice(-800), entry],
+          logs: w.logs.length >= 10000 ? [...w.logs.slice(-9999), entry] : [...w.logs, entry],
+        };
+      }),
+    );
+  }, []);
+
+  const setWindowLogs = useCallback((windowId: string, newLogs: LogEntry[]) => {
+    setWindows((prev) =>
+      prev.map((w) => {
+        if (w.id !== windowId) return w;
+        if (w.isPaused) return w;
+        return {
+          ...w,
+          logs: newLogs.length > 10000 ? newLogs.slice(-10000) : newLogs,
         };
       }),
     );
@@ -521,6 +535,7 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     toggleWindowLogTimestamps,
     toggleWindowServiceFilter,
     setWindowServiceFilters,
+    setWindowLogs,
   };
 
   return (

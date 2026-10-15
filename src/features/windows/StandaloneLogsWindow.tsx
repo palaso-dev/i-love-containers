@@ -16,6 +16,7 @@ import {
 import { useAppStore } from "@/stores/useAppStore";
 import * as api from "@/lib/api";
 import { sanitizeLogMessage, getCleanContainerName } from "@/lib/utils";
+import { ServiceFilterPopover } from "@/components/ServiceFilterPopover";
 
 interface LogEntry {
   id: string;
@@ -128,7 +129,9 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [zoomInUi, zoomOutUi, resetZoomUi]);
 
-  const availableServices = Array.from(new Set(logs.map((l) => l.source)));
+  const availableServices = Array.from(new Set(logs.map((l) => l.source))).sort(
+    (a, b) => a.localeCompare(b),
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -208,7 +211,7 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
             const filtered = cutoff > 0
               ? combined.filter((l) => l.timestampMs > cutoff)
               : combined;
-            setLogs(filtered.slice(-1000));
+            setLogs(filtered.length > 10000 ? filtered.slice(-10000) : filtered);
           }
         } else if (containerId) {
           const rawLogs = await api.fetchContainerLogs(containerId);
@@ -243,7 +246,7 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
             const filtered = cutoff > 0
               ? parsed.filter((l) => l.timestampMs > cutoff)
               : parsed;
-            setLogs(filtered.slice(-1000));
+            setLogs(filtered.length > 10000 ? filtered.slice(-10000) : filtered);
           }
         }
       } catch (err) {
@@ -280,17 +283,9 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const isServiceActive = (name: string) => {
-    return selectedServices === null || selectedServices.includes(name);
-  };
-
-  const activeCount =
-    selectedServices === null
-      ? availableServices.length
-      : availableServices.filter((s) => selectedServices.includes(s)).length;
-  const allSelected =
-    selectedServices === null || activeCount === availableServices.length;
-  const noneSelected = selectedServices !== null && activeCount === 0;
+  const noneSelected =
+    selectedServices !== null &&
+    availableServices.filter((s) => selectedServices.includes(s)).length === 0;
 
   const handleSelectAll = () => {
     setSelectedServices(null);
@@ -360,6 +355,18 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
         </div>
 
         <div className="flex items-center space-x-2 flex-1 justify-end">
+          <ServiceFilterPopover
+            availableServices={availableServices}
+            activeServices={selectedServices}
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
+            onInvert={handleInvertSelection}
+            onToggle={handleToggleService}
+            onSolo={handleSoloService}
+            isEs={isEs}
+            align="right"
+          />
+
           <div className="relative max-w-xs w-full flex items-center">
             <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -508,98 +515,6 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
         </div>
       </div>
 
-      {availableServices.length > 1 && (
-        <div className="px-4 py-1.5 bg-surface/60 border-b border-border flex items-center space-x-2 font-mono text-2xs shrink-0 overflow-x-auto select-none">
-          <div className="flex items-center space-x-1.5 text-muted-foreground shrink-0">
-            <Filter className="w-3 h-3" />
-            <span className="font-semibold">{isEs ? "Servicios" : "Services"}</span>
-            <span className="text-[10px] text-muted-foreground/70">
-              ({activeCount}/{availableServices.length})
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-1 shrink-0">
-            <button
-              onClick={handleSelectAll}
-              className={`px-1.5 py-0.5 rounded text-[11px] transition-colors border ${
-                allSelected
-                  ? "bg-primary/10 text-primary border-primary/30 font-semibold"
-                  : "bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
-              }`}
-              title={isEs ? "Seleccionar todos los servicios" : "Select all services"}
-            >
-              {isEs ? "Todos" : "All"}
-            </button>
-            <button
-              onClick={handleDeselectAll}
-              className={`px-1.5 py-0.5 rounded text-[11px] transition-colors border ${
-                noneSelected
-                  ? "bg-primary/10 text-primary border-primary/30 font-semibold"
-                  : "bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
-              }`}
-              title={isEs ? "Deseleccionar todos los servicios" : "Deselect all services"}
-            >
-              {isEs ? "Ninguno" : "None"}
-            </button>
-            <button
-              onClick={handleInvertSelection}
-              className="px-1.5 py-0.5 rounded text-[11px] transition-colors border bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
-              title={isEs ? "Invertir selección actual" : "Invert current selection"}
-            >
-              {isEs ? "Invertir" : "Invert"}
-            </button>
-          </div>
-
-          <div className="h-3 w-[1px] bg-border shrink-0 mx-0.5" />
-
-          <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5">
-            {availableServices.map((name) => {
-              const active = isServiceActive(name);
-              return (
-                <div
-                  key={name}
-                  className={`group inline-flex items-center rounded transition-all font-mono text-2xs border ${
-                    active
-                      ? "bg-surface-secondary text-foreground font-semibold border-border shadow-xs"
-                      : "text-muted-foreground opacity-50 hover:opacity-85 border-transparent hover:border-border hover:bg-surface-secondary/50"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      if (e.altKey) {
-                        handleSoloService(name);
-                      } else {
-                        handleToggleService(name);
-                      }
-                    }}
-                    className="inline-flex items-center space-x-1.5 pl-2 pr-1.5 py-0.5 cursor-pointer"
-                    title={
-                      isEs
-                        ? `${name}: Clic para alternar • Alt+clic para aislar`
-                        : `${name}: Click to toggle • Alt+click to isolate`
-                    }
-                  >
-                    <span className={active ? "text-primary font-bold" : "text-muted-foreground"}>
-                      {active ? "●" : "○"}
-                    </span>
-                    <span>{name}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSoloService(name)}
-                    className="mr-1 px-1 py-0 text-[9px] uppercase tracking-wider rounded font-mono text-muted-foreground/60 hover:text-primary hover:bg-primary/20 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
-                    title={isEs ? `Aislar ${name} (ver solo este)` : `Isolate ${name} (view only this)`}
-                  >
-                    {isEs ? "solo" : "solo"}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       <div
         style={{ fontSize: `${fontSize}px` }}
         className={`flex-1 overflow-y-auto overflow-x-auto p-4 select-text font-mono leading-relaxed space-y-0.5 min-h-0 visible-scrollbar ${
@@ -607,21 +522,16 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
         }`}
       >
         {noneSelected ? (
-          <div className="h-full flex flex-col items-center justify-center space-y-2.5 text-muted-foreground select-none">
-            <Filter className="w-8 h-8 opacity-30 stroke-[1.5]" />
-            <span className="text-xs font-mono font-medium">
-              {isEs ? "Ningún servicio seleccionado" : "No services selected"}
-            </span>
-            <span className="text-2xs text-muted-foreground/70">
-              {isEs
-                ? "Elige uno o más servicios en la barra superior o pulsa «Todos»"
-                : "Choose one or more services above or click 'All'"}
+          <div className="h-full flex flex-col items-center justify-center space-y-2 text-muted-foreground select-none">
+            <Filter className="w-6 h-6 opacity-30 stroke-[1.5]" />
+            <span className="text-2xs font-mono font-medium">
+              {isEs ? "Sin servicios seleccionados" : "No services selected"}
             </span>
             <button
               onClick={handleSelectAll}
-              className="mt-1 px-3 py-1 text-2xs font-mono rounded bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors"
+              className="mt-0.5 px-2.5 py-0.5 text-2xs font-mono rounded bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors cursor-pointer"
             >
-              {isEs ? "Seleccionar todos" : "Select all"}
+              {isEs ? "Todos" : "All"}
             </button>
           </div>
         ) : filteredLogs.length === 0 ? (
@@ -653,13 +563,15 @@ export const StandaloneLogsWindow: React.FC<StandaloneLogsWindowProps> = ({
                   </span>
                 )}
                 {shouldShowTag && (
-                  <span
-                    className="font-semibold mr-2 shrink-0 truncate max-w-[280px]"
+                  <button
+                    type="button"
+                    onClick={() => handleSoloService(log.source)}
+                    className="font-semibold mr-2 shrink-0 truncate max-w-[280px] hover:underline cursor-pointer text-left"
                     style={{ color: log.color }}
-                    title={log.source}
+                    title={isEs ? `Aislar ${log.source}` : `Solo ${log.source}`}
                   >
                     [{log.source}]
-                  </span>
+                  </button>
                 )}
                 <span
                   className={`${

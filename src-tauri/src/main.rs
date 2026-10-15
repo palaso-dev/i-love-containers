@@ -722,6 +722,13 @@ fn main() {
                 }
             }
 
+            #[cfg(target_os = "macos")]
+            {
+                if let Ok(menu) = tauri::menu::Menu::default(app.handle()) {
+                    let _ = app.set_menu(menu);
+                }
+            }
+
             Ok(())
         })
         .on_window_event(|window, event| {

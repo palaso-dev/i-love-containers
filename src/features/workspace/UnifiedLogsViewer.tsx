@@ -17,6 +17,7 @@ import {
 import { useAppStore } from "@/stores/useAppStore";
 import * as api from "@/lib/api";
 import { sanitizeLogMessage } from "@/lib/utils";
+import { ServiceFilterPopover } from "@/components/ServiceFilterPopover";
 
 interface UnifiedLogsViewerProps {
   session: WorkspaceSession;
@@ -32,12 +33,12 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
   const isEs = language === "es";
 
   const {
-    appendLog,
     clearSessionLogs,
     toggleSessionAutoScroll,
     toggleSessionTimestamps,
     toggleServiceFilter,
     setServiceFilters,
+    setSessionLogs,
   } = useWorkspaceStore();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -120,7 +121,9 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
   const showTimestamps = session.showTimestamps ?? true;
   const activeFilters = session.activeServiceFilters;
 
-  const availableServices = Array.from(new Set(logs.map((l) => l.source)));
+  const availableServices = Array.from(new Set(logs.map((l) => l.source))).sort(
+    (a, b) => a.localeCompare(b),
+  );
 
   useEffect(() => {
     if (!isActive) return;
@@ -188,10 +191,8 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
           const combined = logsByContainer
             .flat()
             .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-          if (isMounted && combined.length > 0) {
-            combined
-              .slice(-100)
-              .forEach((entry) => appendLog(session.id, entry));
+          if (isMounted) {
+            setSessionLogs(session.id, combined);
           }
         } else if (session.containerId) {
           const rawLogs = await api.fetchContainerLogs(session.containerId);
@@ -200,7 +201,7 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
           const serviceName = session.containerName || "container";
           const color = isDark ? "#38bdf8" : "#0284c7";
 
-          rawLogs.slice(-100).forEach((line) => {
+          const parsed = rawLogs.map((line) => {
             const firstSpace = line.indexOf(" ");
             const firstToken = firstSpace > 0 ? line.slice(0, firstSpace) : line;
             const hasTimestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(firstToken);
@@ -211,7 +212,7 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
             const message = hasTimestamp ? line.slice(firstSpace + 1) : line;
             const timestampMs = hasTimestamp ? new Date(rawTimestamp).getTime() : 0;
 
-            appendLog(session.id, {
+            return {
               id: `${session.containerId}-${rawTimestamp}-${line.substring(0, 40)}`,
               timestamp:
                 displayTimestamp ||
@@ -220,8 +221,12 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
               source: serviceName,
               color,
               message: sanitizeLogMessage(message),
-            });
+            };
           });
+
+          if (isMounted) {
+            setSessionLogs(session.id, parsed);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch logs in dock:", err);
@@ -242,7 +247,7 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
     session.composeProject,
     isActive,
     isDark,
-    appendLog,
+    setSessionLogs,
   ]);
 
   useEffect(() => {
@@ -265,17 +270,9 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const isServiceActive = (name: string) => {
-    return activeFilters === undefined ? true : activeFilters.includes(name);
-  };
-
-  const activeCount =
-    activeFilters === undefined
-      ? availableServices.length
-      : availableServices.filter((s) => activeFilters.includes(s)).length;
-  const allSelected =
-    activeFilters === undefined || activeCount === availableServices.length;
-  const noneSelected = activeFilters !== undefined && activeCount === 0;
+  const noneSelected =
+    activeFilters !== undefined &&
+    availableServices.filter((s) => activeFilters.includes(s)).length === 0;
 
   const handleSelectAll = () => {
     setServiceFilters(session.id, null);
@@ -335,6 +332,18 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
               className="w-full pl-7 pr-2.5 py-1 text-2xs bg-surface-secondary border border-border rounded text-foreground focus:outline-none font-mono"
             />
           </div>
+
+          <ServiceFilterPopover
+            availableServices={availableServices}
+            activeServices={activeFilters}
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
+            onInvert={handleInvertSelection}
+            onToggle={handleToggleService}
+            onSolo={handleSoloService}
+            isEs={isEs}
+            align="left"
+          />
 
           <button
             onClick={() => toggleSessionAutoScroll(session.id)}
@@ -441,119 +450,22 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
         </div>
       </div>
 
-      {availableServices.length > 1 && (
-        <div className="px-3 py-1.5 bg-surface/50 border-b border-border flex items-center space-x-2 overflow-x-auto text-2xs font-mono shrink-0 select-none">
-          <div className="flex items-center space-x-1.5 text-muted-foreground shrink-0">
-            <Filter className="w-2.5 h-2.5" />
-            <span className="font-semibold">{isEs ? "Servicios" : "Services"}</span>
-            <span className="text-[10px] text-muted-foreground/70">
-              ({activeCount}/{availableServices.length})
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-1 shrink-0">
-            <button
-              onClick={handleSelectAll}
-              className={`px-1.5 py-0.5 rounded text-[11px] transition-colors border ${
-                allSelected
-                  ? "bg-primary/10 text-primary border-primary/30 font-semibold"
-                  : "bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
-              }`}
-              title={isEs ? "Seleccionar todos los servicios" : "Select all services"}
-            >
-              {isEs ? "Todos" : "All"}
-            </button>
-            <button
-              onClick={handleDeselectAll}
-              className={`px-1.5 py-0.5 rounded text-[11px] transition-colors border ${
-                noneSelected
-                  ? "bg-primary/10 text-primary border-primary/30 font-semibold"
-                  : "bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
-              }`}
-              title={isEs ? "Deseleccionar todos los servicios" : "Deselect all services"}
-            >
-              {isEs ? "Ninguno" : "None"}
-            </button>
-            <button
-              onClick={handleInvertSelection}
-              className="px-1.5 py-0.5 rounded text-[11px] transition-colors border bg-surface-secondary text-muted-foreground hover:text-foreground border-border hover:bg-surface-hover"
-              title={isEs ? "Invertir selección actual" : "Invert current selection"}
-            >
-              {isEs ? "Invertir" : "Invert"}
-            </button>
-          </div>
-
-          <div className="h-3 w-[1px] bg-border shrink-0 mx-0.5" />
-
-          <div className="flex items-center space-x-1.5 overflow-x-auto py-0.5">
-            {availableServices.map((serviceName) => {
-              const active = isServiceActive(serviceName);
-              return (
-                <div
-                  key={serviceName}
-                  className={`group inline-flex items-center rounded transition-all font-mono text-2xs border ${
-                    active
-                      ? "bg-surface-secondary text-foreground font-semibold border-border shadow-xs"
-                      : "text-muted-foreground opacity-50 hover:opacity-85 border-transparent hover:border-border hover:bg-surface-secondary/50"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      if (e.altKey) {
-                        handleSoloService(serviceName);
-                      } else {
-                        handleToggleService(serviceName);
-                      }
-                    }}
-                    className="inline-flex items-center space-x-1 pl-2 pr-1.5 py-0.5 cursor-pointer"
-                    title={
-                      isEs
-                        ? `${serviceName}: Clic para alternar • Alt+clic para aislar`
-                        : `${serviceName}: Click to toggle • Alt+click to isolate`
-                    }
-                  >
-                    <span className={active ? "text-primary font-bold" : "text-muted-foreground"}>
-                      {active ? "●" : "○"}
-                    </span>
-                    <span>{serviceName}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSoloService(serviceName)}
-                    className="mr-1 px-1 py-0 text-[9px] uppercase tracking-wider rounded font-mono text-muted-foreground/60 hover:text-primary hover:bg-primary/20 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
-                    title={isEs ? `Aislar ${serviceName} (ver solo este)` : `Isolate ${serviceName} (view only this)`}
-                  >
-                    {isEs ? "solo" : "solo"}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       <div
         ref={scrollContainerRef}
         style={{ fontSize: `${fontSize}px` }}
         className="flex-1 overflow-y-auto overflow-x-auto p-3 font-mono select-text leading-relaxed space-y-0.5 min-h-0 visible-scrollbar"
       >
         {noneSelected ? (
-          <div className="h-full flex flex-col items-center justify-center space-y-2.5 text-muted-foreground select-none">
-            <Filter className="w-8 h-8 opacity-30 stroke-[1.5]" />
-            <span className="text-xs font-mono font-medium">
-              {isEs ? "Ningún servicio seleccionado" : "No services selected"}
-            </span>
-            <span className="text-2xs text-muted-foreground/70">
-              {isEs
-                ? "Elige uno o más servicios en la barra superior o pulsa «Todos»"
-                : "Choose one or more services above or click 'All'"}
+          <div className="h-full flex flex-col items-center justify-center space-y-2 text-muted-foreground select-none">
+            <Filter className="w-6 h-6 opacity-30 stroke-[1.5]" />
+            <span className="text-2xs font-mono font-medium">
+              {isEs ? "Sin servicios seleccionados" : "No services selected"}
             </span>
             <button
               onClick={handleSelectAll}
-              className="mt-1 px-3 py-1 text-2xs font-mono rounded bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors"
+              className="mt-0.5 px-2.5 py-0.5 text-2xs font-mono rounded bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-colors cursor-pointer"
             >
-              {isEs ? "Seleccionar todos" : "Select all"}
+              {isEs ? "Todos" : "All"}
             </button>
           </div>
         ) : filteredLogs.length === 0 ? (
@@ -581,12 +493,15 @@ export const UnifiedLogsViewer: React.FC<UnifiedLogsViewerProps> = ({
                   {log.timestamp}
                 </span>
               )}
-              <span
-                className="font-semibold mr-2 shrink-0 "
+              <button
+                type="button"
+                onClick={() => handleSoloService(log.source)}
+                className="font-semibold mr-2 shrink-0 hover:underline cursor-pointer text-left"
                 style={{ color: log.color }}
+                title={isEs ? `Aislar ${log.source}` : `Solo ${log.source}`}
               >
                 [{log.source}]
-              </span>
+              </button>
               <span
                 className={`${
                   wrapLines

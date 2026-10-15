@@ -343,6 +343,8 @@ function requestUnixSocket(
     };
     if (payload !== undefined) {
       headers["Content-Length"] = Buffer.byteLength(payload).toString();
+    } else if (method === "POST" || method === "PUT") {
+      headers["Content-Length"] = "0";
     }
 
     const options: http.RequestOptions = {
@@ -998,10 +1000,14 @@ export function createEngineHandler(options: { cors?: boolean } = {}) {
 
             if (subRoute === "logs") {
               try {
-                const raw = await requestUnixSocket(
-                  socketPath,
-                  `/containers/${containerId}/logs?stdout=true&stderr=true&tail=100&timestamps=true`
-                );
+                const urlObj = new URL(url, "http://127.0.0.1");
+                const tailParam = urlObj.searchParams.get("tail") || "all";
+                const sinceParam = urlObj.searchParams.get("since");
+                let dockerLogsPath = `/containers/${containerId}/logs?stdout=true&stderr=true&tail=${encodeURIComponent(tailParam)}&timestamps=true`;
+                if (sinceParam) {
+                  dockerLogsPath += `&since=${encodeURIComponent(sinceParam)}`;
+                }
+                const raw = await requestUnixSocket(socketPath, dockerLogsPath);
                 if (raw.status < 300) {
                   let logText = "";
                   if (raw.rawBuffer && raw.rawBuffer.length > 0) {
@@ -2593,12 +2599,17 @@ export function attachPtyWebSocket(server: http.Server) {
     head: Buffer,
   ) => {
     const url = req.url || "";
-    const match = url.match(/^\/api\/containers\/([a-zA-Z0-9_-]+)\/pty/);
+    const parsedUrl = new URL(url, "http://localhost");
+    const match = parsedUrl.pathname.match(/^\/api\/containers\/([a-zA-Z0-9_-]+)\/pty/);
     if (!match) {
       return;
     }
 
     const containerId = match[1];
+    const urlCols = parseInt(parsedUrl.searchParams.get("cols") || "", 10);
+    const urlRows = parseInt(parsedUrl.searchParams.get("rows") || "", 10);
+    let targetCols = !isNaN(urlCols) && urlCols >= 10 ? urlCols : 80;
+    let targetRows = !isNaN(urlRows) && urlRows >= 5 ? urlRows : 24;
 
     try {
       socket.setTimeout(0);
@@ -2638,7 +2649,7 @@ export function attachPtyWebSocket(server: http.Server) {
               Cmd: [
                 "sh",
                 "-c",
-                "export PS1='\\h:\\W\\$ '; [ -d /etc ] && echo 'export PS1=\"\\\\h:\\\\W\\\\$ \"' > /tmp/.ilc_profile 2>/dev/null; [ -f /tmp/.ilc_profile ] && export ENV=/tmp/.ilc_profile; if [ -x /bin/bash ]; then exec /bin/bash --login; elif [ -x /usr/bin/bash ]; then exec /usr/bin/bash --login; elif [ -x /bin/ash ]; then exec /bin/ash; elif [ -x /bin/sh ]; then exec /bin/sh; else exec sh; fi",
+                "if [ -x /bin/bash ]; then exec /bin/bash -l -i; elif [ -x /usr/bin/bash ]; then exec /usr/bin/bash -l -i; elif [ -x /bin/ash ]; then exec /bin/ash -l -i; elif [ -x /bin/sh ]; then exec /bin/sh -l -i; else exec sh -i; fi",
               ],
             }
           );
@@ -2711,6 +2722,17 @@ export function attachPtyWebSocket(server: http.Server) {
         let upgraded = false;
         let headerBuffer = Buffer.alloc(0);
 
+        const applyResize = (w: number, h: number) => {
+          if (!execId) return;
+          const cols = Math.max(10, Math.min(500, w));
+          const rows = Math.max(5, Math.min(200, h));
+          requestUnixSocket(
+            socketPath,
+            `/exec/${execId}/resize?h=${rows}&w=${cols}`,
+            "POST"
+          ).catch(() => {});
+        };
+
         rawSocket.on("connect", () => {
           try {
             rawSocket.setTimeout(0);
@@ -2755,11 +2777,19 @@ export function attachPtyWebSocket(server: http.Server) {
                 return;
               }
 
-              requestUnixSocket(
-                socketPath,
-                `/exec/${execId}/resize?h=24&w=80`,
-                "POST"
-              ).catch(() => {});
+              applyResize(targetCols, targetRows);
+              setTimeout(() => applyResize(targetCols, targetRows), 50);
+              setTimeout(() => applyResize(targetCols, targetRows), 150);
+
+              if (ws.readyState === 1) {
+                ws.send(
+                  JSON.stringify({
+                    type: "pty-ready",
+                    cols: targetCols,
+                    rows: targetRows,
+                  })
+                );
+              }
 
               if (remainder.length > 0 && ws.readyState === 1) {
                 ws.send(remainder);
@@ -2809,11 +2839,11 @@ export function attachPtyWebSocket(server: http.Server) {
             try {
               const parsed = JSON.parse(str);
               if (parsed.cols && parsed.rows) {
-                requestUnixSocket(
-                  socketPath,
-                  `/exec/${execId}/resize?h=${parsed.rows}&w=${parsed.cols}`,
-                  "POST"
-                ).catch(() => {});
+                targetCols = Number(parsed.cols);
+                targetRows = Number(parsed.rows);
+                if (upgraded && execId) {
+                  applyResize(targetCols, targetRows);
+                }
               }
             } catch {}
             return;

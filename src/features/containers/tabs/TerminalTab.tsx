@@ -53,12 +53,7 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({
       ) {
         return;
       }
-      try {
-        session.fitAddon.fit();
-        if (session.term.cols < 30) {
-          session.term.resize(80, 24);
-        }
-      } catch {}
+      session.fit();
     };
 
     const fitTimer = setTimeout(safeFit, 25);
@@ -109,7 +104,7 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({
     const timer = setTimeout(() => {
       try {
         if (containerEl.clientWidth >= 100 && containerEl.clientHeight >= 50) {
-          session.fitAddon.fit();
+          session.fit();
         }
         session.term.focus();
       } catch {}

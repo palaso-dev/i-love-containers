@@ -64,6 +64,7 @@ interface WorkspaceContextValue {
     allAvailable?: string[],
   ) => void;
   setServiceFilters: (sessionId: string, filters: string[] | null) => void;
+  setSessionLogs: (sessionId: string, newLogs: LogEntry[]) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | undefined>(
@@ -263,7 +264,25 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
         if (session.logs.some((existing) => existing.id === entry.id)) return session;
         return {
           ...session,
-          logs: [...session.logs.slice(-800), entry],
+          logs: session.logs.length >= 10000 ? [...session.logs.slice(-9999), entry] : [...session.logs, entry],
+        };
+      }),
+    );
+  }, []);
+
+  const setSessionLogs = useCallback((sessionId: string, newLogs: LogEntry[]) => {
+    setSessions((prev) =>
+      prev.map((session: WorkspaceSession) => {
+        if (session.id !== sessionId) return session;
+        if (session.isPaused) return session;
+        const cutoff = session.clearedAt || 0;
+        const filtered =
+          cutoff > 0
+            ? newLogs.filter((l) => (l.timestampMs || 0) > cutoff)
+            : newLogs;
+        return {
+          ...session,
+          logs: filtered.length > 10000 ? filtered.slice(-10000) : filtered,
         };
       }),
     );
@@ -395,6 +414,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({
     toggleSessionTimestamps,
     toggleServiceFilter,
     setServiceFilters,
+    setSessionLogs,
   };
 
   return (

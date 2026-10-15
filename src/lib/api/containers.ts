@@ -191,9 +191,20 @@ export async function fetchContainerStats(
   return [];
 }
 
-export async function fetchContainerLogs(id: string): Promise<string[]> {
+export async function fetchContainerLogs(
+  id: string,
+  options?: { tail?: number | "all"; since?: number },
+): Promise<string[]> {
   try {
-    const response = await apiFetch(`/api/containers/${id}/logs`);
+    const params = new URLSearchParams();
+    if (options?.tail !== undefined) {
+      params.set("tail", String(options.tail));
+    }
+    if (options?.since !== undefined) {
+      params.set("since", String(options.since));
+    }
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    const response = await apiFetch(`/api/containers/${id}/logs${qs}`);
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {

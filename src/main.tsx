@@ -17,8 +17,46 @@ const containerName = urlParams.get("name") || "";
 const composeProject = urlParams.get("project") || undefined;
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-
 import { useAppStore } from "@/stores/useAppStore";
+
+if (typeof window !== "undefined") {
+  window.addEventListener(
+    "keydown",
+    (e: KeyboardEvent) => {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        (e.key === "c" || e.key === "C") &&
+        !e.shiftKey &&
+        !e.altKey
+      ) {
+        const activeEl = document.activeElement;
+        if (
+          activeEl instanceof HTMLInputElement ||
+          activeEl instanceof HTMLTextAreaElement ||
+          activeEl?.closest(".xterm")
+        ) {
+          return;
+        }
+
+        const selection = window.getSelection()?.toString();
+        if (selection && selection.length > 0) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(selection).catch(() => {
+              try {
+                document.execCommand("copy");
+              } catch {}
+            });
+          } else {
+            try {
+              document.execCommand("copy");
+            } catch {}
+          }
+        }
+      }
+    },
+    { capture: true },
+  );
+}
 
 const WindowZoomHandler: React.FC<{ children: React.ReactNode }> = ({
   children,

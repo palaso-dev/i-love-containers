@@ -158,12 +158,7 @@ export const StandaloneTerminalWindow: React.FC<
       ) {
         return;
       }
-      try {
-        session.fitAddon.fit();
-        if (session.term.cols < 30) {
-          session.term.resize(80, 24);
-        }
-      } catch {}
+      session.fit();
     };
 
     const fitTimer = setTimeout(safeFit, 20);

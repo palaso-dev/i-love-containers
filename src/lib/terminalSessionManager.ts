@@ -18,6 +18,7 @@ export interface TerminalSession {
   resetZoom: () => void;
   reconnect: (force?: boolean) => void;
   clear: () => void;
+  fit: () => void;
   dispose?: () => void;
 }
 
@@ -87,6 +88,19 @@ export function getOrCreateTerminalSession(
   let isConnected = false;
   let triedFallback = false;
 
+  const fit = () => {
+    try {
+      if (wrapperEl.clientWidth > 50 && wrapperEl.clientHeight > 30) {
+        fitAddon.fit();
+      }
+      const cols = Math.max(term.cols || 80, 20);
+      const rows = Math.max(term.rows || 24, 5);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "resize", cols, rows }));
+      }
+    } catch {}
+  };
+
   const connectWs = (useFallback = false) => {
     if (ws) {
       ws.onclose = null;
@@ -99,9 +113,11 @@ export function getOrCreateTerminalSession(
 
     term.write("\x1b[90mConnecting to container terminal...\x1b[0m\r\n");
 
+    const currentCols = Math.max(term.cols || 80, 20);
+    const currentRows = Math.max(term.rows || 24, 5);
     const url = useFallback
-      ? getAlternateTerminalWsUrl(containerId)
-      : getTerminalWsUrl(containerId);
+      ? getAlternateTerminalWsUrl(containerId, currentCols, currentRows)
+      : getTerminalWsUrl(containerId, undefined, currentCols, currentRows);
 
     const socket = new WebSocket(url);
     socket.binaryType = "arraybuffer";
@@ -121,29 +137,15 @@ export function getOrCreateTerminalSession(
           pingTimer = null;
         }
       }, 10000);
-      try {
-        if (wrapperEl.clientWidth > 150 && wrapperEl.clientHeight > 80) {
-          fitAddon.fit();
-        }
-        const cols = Math.max(term.cols || 80, 40);
-        const rows = Math.max(term.rows || 24, 10);
-        if (term.cols !== cols || term.rows !== rows) {
-          term.resize(cols, rows);
-        }
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(
-            JSON.stringify({
-              type: "resize",
-              cols,
-              rows,
-            }),
-          );
-        }
-      } catch {}
+      fit();
     };
 
     socket.onmessage = (event) => {
       if (typeof event.data === "string") {
+        if (event.data.startsWith('{"type":"pty-ready"')) {
+          fit();
+          return;
+        }
         term.write(event.data);
       } else if (event.data instanceof ArrayBuffer) {
         term.write(new Uint8Array(event.data));
@@ -207,9 +209,7 @@ export function getOrCreateTerminalSession(
     session.fontSize = clamped;
     term.options.fontSize = clamped;
     saveTerminalFontSize(clamped);
-    try {
-      fitAddon.fit();
-    } catch {}
+    fit();
   };
 
   const zoomIn = () => applyFontSize(currentFontSize + 1.5);
@@ -263,12 +263,14 @@ export function getOrCreateTerminalSession(
     clear: () => {
       term.clear();
     },
+    fit,
     dispose: () => {
       disposables.forEach((d) => d.dispose());
       wrapperEl.removeEventListener("paste", handlePaste);
     },
   };
 
+  wrapperEl.addEventListener("paste", handlePaste);
   sessions.set(containerId, session);
   connectWs(false);
   return session;
